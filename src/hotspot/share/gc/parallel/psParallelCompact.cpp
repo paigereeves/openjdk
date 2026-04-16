@@ -49,6 +49,7 @@
 #include "gc/shared/gcLocker.hpp"
 #include "gc/shared/gcTimer.hpp"
 #include "gc/shared/gcTrace.hpp"
+#include "gc/shared/gcUtil.hpp"
 #include "gc/shared/gcTraceTime.inline.hpp"
 #include "gc/shared/isGCActiveMark.hpp"
 #include "gc/shared/oopStorage.inline.hpp"
@@ -954,6 +955,7 @@ void PSParallelCompact::pre_compact()
   // at each young gen gc.  Do the update unconditionally (even though a
   // promotion failure does not swap spaces) because an unknown number of young
   // collections will have swapped the spaces an unknown number of times.
+  trace_gc_phase_begin(GcPhase::Parallel_Pre_Compact);
   GCTraceTime(Debug, gc, phases) tm("Pre Compact", &_gc_timer);
   ParallelScavengeHeap* heap = ParallelScavengeHeap::heap();
   _space_info[from_space_id].set_space(heap->young_gen()->from_space());
@@ -984,10 +986,12 @@ void PSParallelCompact::pre_compact()
   DEBUG_ONLY(summary_data().verify_clear();)
 
   ParCompactionManager::reset_all_bitmap_query_caches();
+  trace_gc_phase_end(GcPhase::Parallel_Pre_Compact);
 }
 
 void PSParallelCompact::post_compact()
 {
+  trace_gc_phase_begin(GcPhase::Parallel_Post_Compact);
   GCTraceTime(Info, gc, phases) tm("Post Compact", &_gc_timer);
   ParCompactionManager::remove_all_shadow_regions();
 
@@ -1030,6 +1034,7 @@ void PSParallelCompact::post_compact()
     GCTraceTime(Debug, gc, phases) t("Purge Class Loader Data", gc_timer());
     ClassLoaderDataGraph::purge(true /* at_safepoint */);
     DEBUG_ONLY(MetaspaceUtils::verify();)
+    trace_gc_phase_begin(GcPhase::Parallel_Purge_Class_Loader_Data);
   }
 
   // Need to clear claim bits for the next mark.
@@ -1047,6 +1052,7 @@ void PSParallelCompact::post_compact()
 
   // Signal that we have completed a visit to all live objects.
   Universe::heap()->record_whole_heap_examined_timestamp();
+  trace_gc_phase_end(GcPhase::Parallel_Post_Compact);
 }
 
 HeapWord*
@@ -1584,6 +1590,7 @@ void PSParallelCompact::summary_phase_msg(SpaceId dst_space_id,
 
 void PSParallelCompact::summary_phase(bool maximum_compaction)
 {
+  trace_gc_phase_begin(GcPhase::Parallel_Summary);
   GCTraceTime(Info, gc, phases) tm("Summary Phase", &_gc_timer);
 
   // Quick summarization of each space into itself, to see how much is live.
@@ -1668,6 +1675,7 @@ void PSParallelCompact::summary_phase(bool maximum_compaction)
   log_develop_trace(gc, compaction)("Summary_phase:  after final summarization");
   NOT_PRODUCT(print_region_ranges());
   NOT_PRODUCT(print_initial_summary_data(_summary_data, _space_info));
+  trace_gc_phase_end(GcPhase::Parallel_Summary);
 }
 
 // This method should contain all heap-specific policy for invoking a full
@@ -2019,6 +2027,7 @@ public:
 };
 
 void PSParallelCompact::marking_phase(ParallelOldTracer *gc_tracer) {
+  trace_gc_phase_begin(GcPhase::Parallel_Marking);
   // Recursively traverse all live objects and mark them
   GCTraceTime(Info, gc, phases) tm("Marking Phase", &_gc_timer);
 
@@ -2026,14 +2035,17 @@ void PSParallelCompact::marking_phase(ParallelOldTracer *gc_tracer) {
 
   ClassLoaderDataGraph::verify_claimed_marks_cleared(ClassLoaderData::_claim_stw_fullgc_mark);
   {
+    trace_gc_phase_begin(GcPhase::Parallel_Par_Mark);
     GCTraceTime(Debug, gc, phases) tm("Par Mark", &_gc_timer);
 
     MarkFromRootsTask task(active_gc_threads);
     ParallelScavengeHeap::heap()->workers().run_task(&task);
+    trace_gc_phase_end(GcPhase::Parallel_Par_Mark);
   }
 
   // Process reference objects found during marking
   {
+    trace_gc_phase_begin(GcPhase::Parallel_Reference_Processing);
     GCTraceTime(Debug, gc, phases) tm("Reference Processing", &_gc_timer);
 
     ReferenceProcessorStats stats;
@@ -2045,20 +2057,24 @@ void PSParallelCompact::marking_phase(ParallelOldTracer *gc_tracer) {
 
     gc_tracer->report_gc_reference_stats(stats);
     pt.print_all_references();
+    trace_gc_phase_end(GcPhase::Parallel_Reference_Processing);
   }
 
   // This is the point where the entire marking should have completed.
   ParCompactionManager::verify_all_marking_stack_empty();
 
   {
+    trace_gc_phase_begin(GcPhase::Parallel_Weak_Processing);
     GCTraceTime(Debug, gc, phases) tm("Weak Processing", &_gc_timer);
     WeakProcessor::weak_oops_do(&ParallelScavengeHeap::heap()->workers(),
                                 is_alive_closure(),
                                 &do_nothing_cl,
                                 1);
+  trace_gc_phase_end(GcPhase::Parallel_Weak_Processing);
   }
 
   {
+    trace_gc_phase_begin(GcPhase::Parallel_Class_Unloading);
     GCTraceTime(Debug, gc, phases) tm_m("Class Unloading", &_gc_timer);
 
     ClassUnloadingContext* ctx = ClassUnloadingContext::context();
@@ -2075,17 +2091,23 @@ void PSParallelCompact::marking_phase(ParallelOldTracer *gc_tracer) {
     }
 
     {
+      trace_gc_phase_begin(GcPhase::Parallel_Purge_Unlinked_NMethods);
       GCTraceTime(Debug, gc, phases) t("Purge Unlinked NMethods", gc_timer());
       // Release unloaded nmethod's memory.
       ctx->purge_nmethods();
+      trace_gc_phase_end(GcPhase::Parallel_Purge_Unlinked_NMethods);
     }
     {
+      trace_gc_phase_begin(GcPhase::Parallel_Unregister_NMethods);
       GCTraceTime(Debug, gc, phases) ur("Unregister NMethods", &_gc_timer);
       ParallelScavengeHeap::heap()->prune_unlinked_nmethods();
+      trace_gc_phase_end(GcPhase::Parallel_Unregister_NMethods);
     }
     {
+      trace_gc_phase_begin(GcPhase::Parallel_Free_Code_Blobs);
       GCTraceTime(Debug, gc, phases) t("Free Code Blobs", gc_timer());
       ctx->free_code_blobs();
+      trace_gc_phase_end(GcPhase::Parallel_Free_Code_Blobs);
     }
 
     // Prune dead klasses from subklass/sibling/implementor lists.
@@ -2093,16 +2115,20 @@ void PSParallelCompact::marking_phase(ParallelOldTracer *gc_tracer) {
 
     // Clean JVMCI metadata handles.
     JVMCI_ONLY(JVMCI::do_unloading(unloading_occurred));
+    trace_gc_phase_end(GcPhase::Parallel_Class_Unloading);
   }
 
   {
+    trace_gc_phase_begin(GcPhase::Parallel_Report_Object_Count);
     GCTraceTime(Debug, gc, phases) tm("Report Object Count", &_gc_timer);
     _gc_tracer.report_object_count_after_gc(is_alive_closure(), &ParallelScavengeHeap::heap()->workers());
+    trace_gc_phase_end(GcPhase::Parallel_Report_Object_Count);
   }
 #if TASKQUEUE_STATS
   ParCompactionManager::oop_task_queues()->print_and_reset_taskqueue_stats("Oop Queue");
   ParCompactionManager::_objarray_task_queues->print_and_reset_taskqueue_stats("ObjArrayOop Queue");
 #endif
+  trace_gc_phase_end(GcPhase::Parallel_Marking);
 }
 
 class PSAdjustTask final : public WorkerTask {
@@ -2159,11 +2185,13 @@ public:
 };
 
 void PSParallelCompact::adjust_roots() {
+  trace_gc_phase_begin(GcPhase::Parallel_Adjust_Roots);
   // Adjust the pointers to reflect the new locations
   GCTraceTime(Info, gc, phases) tm("Adjust Roots", &_gc_timer);
   uint nworkers = ParallelScavengeHeap::heap()->workers().active_workers();
   PSAdjustTask task(nworkers);
   ParallelScavengeHeap::heap()->workers().run_task(&task);
+  trace_gc_phase_end(GcPhase::Parallel_Adjust_Roots);
 }
 
 // Helper class to print 8 region numbers per line and then print the total at the end.
@@ -2463,6 +2491,7 @@ public:
 };
 
 void PSParallelCompact::compact() {
+  trace_gc_phase_begin(GcPhase::Parallel_Compaction);
   GCTraceTime(Info, gc, phases) tm("Compaction Phase", &_gc_timer);
 
   ParallelScavengeHeap* heap = ParallelScavengeHeap::heap();
@@ -2482,6 +2511,7 @@ void PSParallelCompact::compact() {
   enqueue_dense_prefix_tasks(task_queue, active_gc_threads);
 
   {
+    trace_gc_phase_begin(GcPhase::Parallel_Par_Compact);
     GCTraceTime(Trace, gc, phases) tm("Par Compact", &_gc_timer);
 
     UpdateDensePrefixAndCompactionTask task(task_queue, active_gc_threads);
@@ -2493,9 +2523,11 @@ void PSParallelCompact::compact() {
       verify_complete(SpaceId(id));
     }
 #endif
+    trace_gc_phase_end(GcPhase::Parallel_Par_Compact);
   }
 
   DEBUG_ONLY(write_block_fill_histogram());
+  trace_gc_phase_end(GcPhase::Parallel_Compaction);
 }
 
 #ifdef  ASSERT

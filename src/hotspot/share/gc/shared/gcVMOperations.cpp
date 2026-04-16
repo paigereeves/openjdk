@@ -31,6 +31,7 @@
 #include "gc/shared/gcVMOperations.hpp"
 #include "gc/shared/gc_globals.hpp"
 #include "gc/shared/genCollectedHeap.hpp"
+#include "gc/shared/gcUtil.hpp"
 #include "interpreter/oopMapCache.hpp"
 #include "logging/log.hpp"
 #include "memory/classLoaderMetaspace.hpp"
@@ -44,6 +45,7 @@
 #include "utilities/dtrace.hpp"
 #include "utilities/macros.hpp"
 #include "utilities/preserveException.hpp"
+#include "utilities/globalDefinitions.hpp"
 #if INCLUDE_G1GC
 #include "gc/g1/g1CollectedHeap.inline.hpp"
 #include "gc/g1/g1Policy.hpp"
@@ -75,13 +77,18 @@ const char* VM_GC_Operation::cause() const {
 // The same dtrace probe can't be inserted in two different files, so we
 // have to call it here, so it's only in one file.  Can't create new probes
 // for the other file anymore.   The dtrace probes have to remain stable.
-void VM_GC_Operation::notify_gc_begin(bool full) {
+void NOINLINE VM_GC_Operation::notify_gc_begin(bool full) {
+  perf_ctrl_enable();
   HOTSPOT_GC_BEGIN(
                    full);
+  trace_gc_heap_used(Universe::heap()->used());
 }
 
-void VM_GC_Operation::notify_gc_end() {
+void NOINLINE VM_GC_Operation::notify_gc_end() {
   HOTSPOT_GC_END();
+  trace_gc_heap_used(Universe::heap()->used());
+  trace_gc_heap_capacity(Universe::heap()->capacity());
+  perf_ctrl_disable();
 }
 
 // Allocations may fail in several threads at about the same time,

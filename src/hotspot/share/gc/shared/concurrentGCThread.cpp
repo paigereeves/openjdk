@@ -24,11 +24,13 @@
 
 #include "precompiled.hpp"
 #include "gc/shared/concurrentGCThread.hpp"
+#include "gc/shared/gcUtil.hpp"
 #include "runtime/atomic.hpp"
 #include "runtime/init.hpp"
 #include "runtime/jniHandles.hpp"
 #include "runtime/mutexLocker.hpp"
 #include "runtime/os.hpp"
+#include "utilities/dtrace.hpp"
 
 ConcurrentGCThread::ConcurrentGCThread() :
     _should_terminate(false),
@@ -42,6 +44,7 @@ void ConcurrentGCThread::create_and_start(ThreadPriority prio) {
 }
 
 void ConcurrentGCThread::run() {
+  trace_gc_thread_spawn();
   // Wait for initialization to complete
   wait_init_completed();
 

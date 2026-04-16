@@ -25,6 +25,7 @@
 #include "precompiled.hpp"
 #include "gc/shared/gc_globals.hpp"
 #include "gc/shared/workerThread.hpp"
+#include "gc/shared/gcUtil.hpp"
 #include "logging/log.hpp"
 #include "memory/iterator.hpp"
 #include "runtime/atomic.hpp"
@@ -195,6 +196,7 @@ WorkerThread::WorkerThread(const char* name_prefix, uint name_suffix, WorkerTask
 }
 
 void WorkerThread::run() {
+  trace_gc_thread_spawn();
   os::set_priority(this, NearMaxPriority);
 
   while (true) {

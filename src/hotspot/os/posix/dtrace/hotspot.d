@@ -39,8 +39,13 @@ provider hotspot {
   probe vmops__request(char*, uintptr_t, int);
   probe vmops__begin(char*, uintptr_t, int);
   probe vmops__end(char*, uintptr_t, int);
+  probe gc__thread__spawn();
   probe gc__begin(uintptr_t);
   probe gc__end();
+  probe gc__phase__begin(int);
+  probe gc__phase__end(int);
+  probe gc__heap__used(long long);
+  probe gc__heap__capacity(long long);
   probe mem__pool__gc__begin(
     char*, uintptr_t, char*, uintptr_t, 
     uintptr_t, uintptr_t, uintptr_t, uintptr_t);

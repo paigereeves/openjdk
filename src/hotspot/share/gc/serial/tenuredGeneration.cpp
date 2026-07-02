@@ -104,6 +104,10 @@ bool TenuredGeneration::expand(size_t bytes, size_t expand_bytes) {
     log_trace(gc, heap)("Garbage collection disabled, expanded heap instead");
   }
 
+  if (success) {
+    _virtual_space.annotate("Java Heap (Old)");
+  }
+
   return success;
 }
 
@@ -340,6 +344,7 @@ TenuredGeneration::TenuredGeneration(ReservedSpace rs,
   _space_counters = new CSpaceCounters(gen_name, 0,
                                        _virtual_space.reserved_size(),
                                        _the_space, _gen_counters);
+  _virtual_space.annotate("Java Heap (Old)");
 }
 
 void TenuredGeneration::gc_prologue(bool full) {

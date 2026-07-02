@@ -377,6 +377,8 @@ DefNewGeneration::DefNewGeneration(ReservedSpace rs,
   _gc_timer = new STWGCTimer();
 
   _gc_tracer = new DefNewTracer();
+
+  _virtual_space.annotate("Java Heap (Young)");
 }
 
 void DefNewGeneration::compute_space_boundaries(uintx minimum_eden_size,
@@ -510,6 +512,10 @@ bool DefNewGeneration::expand(size_t bytes) {
   // value.
   if (GCLocker::is_active()) {
     log_debug(gc)("Garbage collection disabled, expanded heap instead");
+  }
+
+  if (success) {
+    _virtual_space.annotate("Java Heap (Young)");
   }
 
   return success;

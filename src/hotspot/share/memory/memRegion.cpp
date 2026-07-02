@@ -27,9 +27,25 @@
 #include "memory/allocation.inline.hpp"
 #include "memory/memRegion.hpp"
 #include "runtime/globals.hpp"
+#include "logging/log.hpp"
+
+#include <linux/prctl.h>
+#include <sys/prctl.h>
+#ifndef PR_SET_VMA
+# define PR_SET_VMA 0x53564d41
+#endif
+#ifndef PR_SET_VMA_ANON_NAME
+# define PR_SET_VMA_ANON_NAME 0
+#endif
 
 // A very simple data structure representing a contiguous word-aligned
 // region of address space.
+
+void MemRegion::annotate(const char* name) {
+  log_info(gc)("MemRegion::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _start, end(), byte_size());
+  int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, _start, byte_size(), name);
+  assert(result == 0, "Failed to set VMA anon name for memory region");
+}
 
 MemRegion MemRegion::intersection(const MemRegion mr2) const {
   MemRegion res;

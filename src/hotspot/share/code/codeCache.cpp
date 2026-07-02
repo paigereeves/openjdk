@@ -337,6 +337,7 @@ void CodeCache::initialize_heaps() {
   //      Profiled nmethods
   // ---------- low ------------
   ReservedCodeSpace rs = reserve_heap_memory(cache_size, ps);
+  rs.annotate("Code Space (Reserved)");
   ReservedSpace profiled_space      = rs.first_part(profiled_size);
   ReservedSpace rest                = rs.last_part(profiled_size);
   ReservedSpace non_method_space    = rest.first_part(non_nmethod_size);

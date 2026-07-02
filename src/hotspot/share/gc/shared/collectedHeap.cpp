@@ -586,6 +586,7 @@ void CollectedHeap::initialize_reserved_region(const ReservedHeapSpace& rs) {
   _reserved.set_word_size(0);
   _reserved.set_start((HeapWord*)rs.base());
   _reserved.set_end((HeapWord*)rs.end());
+  _reserved.annotate("Java Heap (Reserved)");
 }
 
 void CollectedHeap::post_initialize() {

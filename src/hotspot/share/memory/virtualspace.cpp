@@ -36,6 +36,16 @@
 #include "utilities/align.hpp"
 #include "utilities/formatBuffer.hpp"
 #include "utilities/powerOfTwo.hpp"
+#include "logging/log.hpp"
+
+#include <linux/prctl.h>
+#include <sys/prctl.h>
+#ifndef PR_SET_VMA
+# define PR_SET_VMA 0x53564d41
+#endif
+#ifndef PR_SET_VMA_ANON_NAME
+# define PR_SET_VMA_ANON_NAME 0
+#endif
 
 // ReservedSpace
 
@@ -354,6 +364,12 @@ void ReservedSpace::release() {
   }
 }
 
+void ReservedSpace::annotate(const char* name) {
+  log_info(gc)("ReservedSpace::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _base, _base + _size, _size);
+  int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, _base, _size, name);
+  assert(result == 0, "Failed to set VMA anon name for memory region");
+}
+
 static size_t noaccess_prefix_size(size_t alignment) {
   return lcm(os::vm_page_size(), alignment);
 }
@@ -645,6 +661,8 @@ ReservedHeapSpace::ReservedHeapSpace(size_t size, size_t alignment, size_t page_
     MemTracker::record_virtual_memory_type((address)base(), mtJavaHeap);
   }
 
+  this->annotate("Java Heap (Reserved)");
+
   if (_fd_for_heap != -1) {
     ::close(_fd_for_heap);
   }
@@ -686,7 +704,13 @@ VirtualSpace::VirtualSpace() {
 
 bool VirtualSpace::initialize(ReservedSpace rs, size_t committed_size) {
   const size_t max_commit_granularity = os::page_size_for_region_unaligned(rs.size(), 1);
-  return initialize_with_granularity(rs, committed_size, max_commit_granularity);
+    return initialize_with_granularity(rs, committed_size, max_commit_granularity);
+}
+
+void VirtualSpace::annotate(const char* name) {
+  log_info(gc)("VirtualSpace::annotate: %s, low: %p, high: %p, size: %zu bytes", name, _low, _high, _high - _low);
+  int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, _low, _high - _low, name);
+  assert(result == 0, "Failed to set VMA anon name for memory region");
 }
 
 bool VirtualSpace::initialize_with_granularity(ReservedSpace rs, size_t committed_size, size_t max_commit_granularity) {

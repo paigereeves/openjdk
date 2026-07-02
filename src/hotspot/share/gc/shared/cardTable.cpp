@@ -39,6 +39,17 @@
 #include "gc/parallel/objectStartArray.hpp"
 #endif
 
+#include <fstream>
+
+#include <linux/prctl.h>
+#include <sys/prctl.h>
+#ifndef PR_SET_VMA
+# define PR_SET_VMA 0x53564d41
+#endif
+#ifndef PR_SET_VMA_ANON_NAME
+# define PR_SET_VMA_ANON_NAME 0
+#endif
+
 uint CardTable::_card_shift = 0;
 uint CardTable::_card_size = 0;
 uint CardTable::_card_size_in_words = 0;
@@ -181,6 +192,7 @@ void CardTable::resize_covered_region(MemRegion new_region) {
                               _page_size,
                               !ExecMem,
                               "card table expansion");
+    new_committed.annotate("Card Table");
 
     memset(delta.start(), clean_card, delta.byte_size());
   } else {

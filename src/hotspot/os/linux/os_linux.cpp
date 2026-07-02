@@ -122,6 +122,16 @@
 # include <malloc.h>
 #endif
 
+#include <linux/prctl.h>
+#include <sys/prctl.h>
+#ifndef PR_SET_VMA
+# define PR_SET_VMA 0x53564d41
+#endif
+#ifndef PR_SET_VMA_ANON_NAME
+# define PR_SET_VMA_ANON_NAME 0
+#endif
+#include <fstream>
+
 #ifndef _GNU_SOURCE
   #define _GNU_SOURCE
   #include <sched.h>
@@ -1031,6 +1041,12 @@ bool os::create_thread(Thread* thread, ThreadType thr_type,
       }
     }
   }
+
+  char buf [100];
+  snprintf (buf, 100, "%s Stack", thread->name());
+  int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, 
+                thread->stack_end(), thread->stack_size(), buf);
+  assert(result == 0, "Failed to set VMA anon name for thread stack.");
 
   // The thread is returned suspended (in state INITIALIZED),
   // and is started higher up in the call chain

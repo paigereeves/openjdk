@@ -90,6 +90,7 @@ class ReservedSpace {
   size_t noaccess_prefix() const { return _noaccess_prefix;   }
   bool is_reserved()       const { return _base != nullptr; }
   void release();
+  void annotate(const char* name);
 
   // Splitting
   // This splits the space into two spaces, the first part of which will be returned.
@@ -216,6 +217,7 @@ class VirtualSpace {
   VirtualSpace();
   bool initialize_with_granularity(ReservedSpace rs, size_t committed_byte_size, size_t max_commit_ganularity);
   bool initialize(ReservedSpace rs, size_t committed_byte_size);
+  void annotate(const char* name);
 
   // Destruction
   ~VirtualSpace();

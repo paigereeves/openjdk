@@ -96,6 +96,8 @@ public:
   // Creates and initializes an array of MemRegions of the given length.
   static MemRegion* create_array(size_t length, MEMFLAGS flags);
   static void destroy_array(MemRegion* array, size_t length);
+
+  void annotate(const char* name);
 };
 
 // For iteration over MemRegion's.

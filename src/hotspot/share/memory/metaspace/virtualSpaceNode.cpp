@@ -128,6 +128,8 @@ bool VirtualSpaceNode::commit_range(MetaWord* p, size_t word_size) {
   // ... and update the commit mask.
   _commit_mask.mark_range_as_committed(p, word_size);
 
+  this->_rs.annotate("Metaspace");
+
 #ifdef ASSERT
   // The commit boundary maintained in the CommitLimiter should be equal the sum of committed words
   // in both class and non-class vslist (outside gtests).

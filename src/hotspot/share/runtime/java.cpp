@@ -22,6 +22,9 @@
  *
  */
 
+#include <fstream>
+#include <iostream>
+
 #include "precompiled.hpp"
 #include "cds/cds_globals.hpp"
 #include "cds/dynamicArchive.hpp"
@@ -524,6 +527,23 @@ void before_exit(JavaThread* thread, bool halt) {
 
   print_statistics();
   Universe::heap()->print_tracing_info();
+
+  mkdir("output", 0777);
+
+  std::ofstream outFile("output/maps.txt");
+  assert(outFile, "Failed to open maps.txt");
+
+  FILE* f = ::fopen("/proc/self/maps", "r");
+  assert(f != nullptr, "Failed to read /proc/self/maps");
+
+  outFile << "--- /proc/self/maps at JVM exit ---\n";
+  char line[512];
+  while (::fgets(line, sizeof(line), f) != nullptr) {
+    outFile << line << "\n";
+  }
+  ::fclose(f);
+  outFile << "----------------------------------\n";
+  outFile.close(); 
 
   { MutexLocker ml(BeforeExit_lock);
     _before_exit_status = BEFORE_EXIT_DONE;

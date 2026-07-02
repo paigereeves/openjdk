@@ -217,6 +217,7 @@ bool CodeHeap::reserve(ReservedSpace rs, size_t committed_size, size_t segment_s
   if (!_memory.initialize(rs, c_size)) {
     return false;
   }
+  _memory.annotate("Code Heap");
 
   on_code_mapping(_memory.low(), _memory.committed_size());
   _number_of_committed_segments = size_to_segments(_memory.committed_size());
@@ -231,6 +232,7 @@ bool CodeHeap::reserve(ReservedSpace rs, size_t committed_size, size_t segment_s
   if (!_segmap.initialize(seg_rs, committed_segments_size)) {
     return false;
   }
+  _segmap.annotate("Code Heap (Segment Map)");
 
   MemTracker::record_virtual_memory_type((address)_segmap.low_boundary(), mtCode);
 
@@ -257,6 +259,7 @@ bool CodeHeap::expand_by(size_t size) {
     }
     char* base = _memory.low() + _memory.committed_size();
     if (!_memory.expand_by(dm)) return false;
+    _memory.annotate("Code Heap");
     on_code_mapping(base, dm);
     size_t i = _number_of_committed_segments;
     _number_of_committed_segments = size_to_segments(_memory.committed_size());
@@ -267,6 +270,7 @@ bool CodeHeap::expand_by(size_t size) {
     if ((ds > 0) && !_segmap.expand_by(ds)) {
       return false;
     }
+    _segmap.annotate("Code Heap (Segment Map)");
     assert(_segmap.committed_size() >= (size_t) _number_of_committed_segments, "just checking");
     // initialize additional space (heap memory and segmap)
     clear(i, _number_of_committed_segments);

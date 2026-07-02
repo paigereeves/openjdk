@@ -53,6 +53,7 @@ BlockOffsetSharedArray::BlockOffsetSharedArray(MemRegion reserved,
   if (!_vs.initialize(rs, 0)) {
     vm_exit_during_initialization("Could not reserve enough space for heap offset array");
   }
+  _vs.annotate("Block Offset Shared Array");
   _offset_array = (u_char*)_vs.low_boundary();
   resize(init_word_size);
   log_trace(gc, bot)("BlockOffsetSharedArray::BlockOffsetSharedArray: ");
@@ -76,6 +77,7 @@ void BlockOffsetSharedArray::resize(size_t new_word_size) {
       // Do better than this for Merlin
       vm_exit_out_of_memory(delta, OOM_MMAP_ERROR, "offset table expansion");
     }
+    _vs.annotate("Block Offset Shared Array");
     assert(_vs.high() == high + delta, "invalid expansion");
   } else {
     delta = ReservedSpace::page_align_size_down(old_size - new_size);

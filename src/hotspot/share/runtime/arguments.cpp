@@ -1434,19 +1434,19 @@ static void no_shared_spaces(const char* message) {
 }
 
 void set_object_alignment() {
-  // Object alignment.
-  assert(is_power_of_2(ObjectAlignmentInBytes), "ObjectAlignmentInBytes must be power of 2");
-  MinObjAlignmentInBytes     = ObjectAlignmentInBytes;
-  assert(MinObjAlignmentInBytes >= HeapWordsPerLong * HeapWordSize, "ObjectAlignmentInBytes value is too small");
-  MinObjAlignment            = MinObjAlignmentInBytes / HeapWordSize;
-  assert(MinObjAlignmentInBytes == MinObjAlignment * HeapWordSize, "ObjectAlignmentInBytes value is incorrect");
-  MinObjAlignmentInBytesMask = MinObjAlignmentInBytes - 1;
+  // // Object alignment.
+  // assert(is_power_of_2(ObjectAlignmentInBytes), "ObjectAlignmentInBytes must be power of 2");
+  // MinObjAlignmentInBytes     = 8; // ObjectAlignmentInBytes;
+  // assert(MinObjAlignmentInBytes >= HeapWordsPerLong * HeapWordSize, "ObjectAlignmentInBytes value is too small");
+  // MinObjAlignment            = MinObjAlignmentInBytes / HeapWordSize;
+  // assert(MinObjAlignmentInBytes == MinObjAlignment * HeapWordSize, "ObjectAlignmentInBytes value is incorrect");
+  // MinObjAlignmentInBytesMask = MinObjAlignmentInBytes - 1;
 
-  LogMinObjAlignmentInBytes  = exact_log2(ObjectAlignmentInBytes);
-  LogMinObjAlignment         = LogMinObjAlignmentInBytes - LogHeapWordSize;
+  // LogMinObjAlignmentInBytes  = exact_log2(8); //exact_log2(ObjectAlignmentInBytes);
+  // LogMinObjAlignment         = LogMinObjAlignmentInBytes - LogHeapWordSize;
 
-  // Oop encoding heap max
-  OopEncodingHeapMax = (uint64_t(max_juint) + 1) << LogMinObjAlignmentInBytes;
+  // // Oop encoding heap max
+  // OopEncodingHeapMax = (uint64_t(max_juint) + 1) << LogMinObjAlignmentInBytes;
 }
 
 size_t Arguments::max_heap_for_compressed_oops() {

@@ -543,7 +543,7 @@ void before_exit(JavaThread* thread, bool halt) {
   }
   ::fclose(f);
   outFile << "----------------------------------\n";
-  outFile.close(); 
+  outFile.close();
 
   { MutexLocker ml(BeforeExit_lock);
     _before_exit_status = BEFORE_EXIT_DONE;

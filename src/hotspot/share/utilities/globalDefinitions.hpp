@@ -605,12 +605,20 @@ extern JNIEXPORT jboolean UseSharedSpaces;
 // Minimum is max(BytesPerLong, BytesPerDouble, BytesPerOop) / HeapWordSize, so jlong, jdouble and
 // reference fields can be naturally aligned.
 
-extern int MinObjAlignment;
-extern int MinObjAlignmentInBytes;
-extern int MinObjAlignmentInBytesMask;
+// extern int MinObjAlignment;
+// extern int MinObjAlignmentInBytes;
+// extern int MinObjAlignmentInBytesMask;
 
-extern int LogMinObjAlignment;
-extern int LogMinObjAlignmentInBytes;
+// extern int LogMinObjAlignment;
+// extern int LogMinObjAlignmentInBytes;
+
+const int MinObjAlignmentInBytes     = 8;
+const int MinObjAlignment            = MinObjAlignmentInBytes / HeapWordSize;
+const int MinObjAlignmentInBytesMask = MinObjAlignmentInBytes - 1;
+
+const int LogMinObjAlignmentInBytes  = 3;
+const int LogMinObjAlignment         = LogMinObjAlignmentInBytes - LogHeapWordSize;
+const uint64_t OopEncodingHeapMax = (uint64_t(max_juint) + 1) << LogMinObjAlignmentInBytes;
 
 const int LogKlassAlignmentInBytes = 3;
 const int LogKlassAlignment        = LogKlassAlignmentInBytes - LogHeapWordSize;
@@ -622,7 +630,7 @@ const int KlassAlignment           = KlassAlignmentInBytes / HeapWordSize;
 const  uint64_t UnscaledOopHeapMax = (uint64_t(max_juint) + 1);
 // Maximal size of heap where compressed oops can be used. Also upper bound for heap
 // placement for zero based compression algorithm: UnscaledOopHeapMax << LogMinObjAlignmentInBytes.
-extern uint64_t OopEncodingHeapMax;
+// extern uint64_t OopEncodingHeapMax;
 
 // Maximal size of compressed class space. Above this limit compression is not possible.
 // Also upper bound for placement of zero based class space. (Class space is further limited

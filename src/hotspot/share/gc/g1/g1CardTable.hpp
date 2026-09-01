@@ -118,6 +118,12 @@ public:
   void initialize(G1RegionToSpaceMapper* mapper);
 
   bool is_in_young(const void* p) const override;
+
+  void annotate(const char* name) {
+    log_info(gc)("G1CardTable::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _byte_map, _byte_map + _byte_map_size, _byte_map_size);
+    int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, _byte_map, _byte_map_size, name);
+    assert(result == 0, "Failed to set VMA anon name for G1CardTable");
+  }
 };
 
 #endif // SHARE_GC_G1_G1CARDTABLE_HPP

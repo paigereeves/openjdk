@@ -44,4 +44,5 @@ void G1CMBitMapMappingChangedListener::on_commit(uint start_region, size_t num_r
   // We need to clear the bitmap on commit, removing any existing information.
   MemRegion mr(G1CollectedHeap::heap()->bottom_addr_for_region(start_region), num_regions * HeapRegion::GrainWords);
   _bm->clear_range(mr);
+  _bm->annotate("G1 MarkBitMap");
 }

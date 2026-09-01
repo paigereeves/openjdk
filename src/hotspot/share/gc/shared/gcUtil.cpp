@@ -228,6 +228,6 @@ bool perf_ctrl_send_command(const char *command) {
   return true;
 }
 
-void ç() { perf_ctrl_send_command("enable\n"); }
+void perf_ctrl_enable() { perf_ctrl_send_command("enable\n"); }
 
 void perf_ctrl_disable() { perf_ctrl_send_command("disable\n"); }

@@ -25,6 +25,15 @@
 #ifndef SHARE_UTILITIES_GLOBALDEFINITIONS_HPP
 #define SHARE_UTILITIES_GLOBALDEFINITIONS_HPP
 
+#include <linux/prctl.h>
+#include <sys/prctl.h>
+#ifndef PR_SET_VMA
+# define PR_SET_VMA 0x53564d41
+#endif
+#ifndef PR_SET_VMA_ANON_NAME
+# define PR_SET_VMA_ANON_NAME 0
+#endif
+
 #include "utilities/attributeNoreturn.hpp"
 #include "utilities/compilerWarnings.hpp"
 #include "utilities/debug.hpp"

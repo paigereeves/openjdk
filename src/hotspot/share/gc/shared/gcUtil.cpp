@@ -24,6 +24,8 @@
 
 #include "precompiled.hpp"
 #include "gc/shared/gcUtil.hpp"
+#include <stdlib.h>
+#include <string.h>
 
 // Catch-all file for utility classes
 
@@ -167,3 +169,65 @@ bool LinearLeastSquareFit::decrement_will_decrease() {
 bool LinearLeastSquareFit::increment_will_decrease() {
   return (_slope <= 0.00);
 }
+
+int read_perf_fd_env(const char *envName) {
+  const char *fd_str = std::getenv(envName);
+  if (fd_str == nullptr) {
+    return -1;
+  }
+  int fd = atoi(fd_str);
+  if (fd < 0) {
+    return -1;
+  }
+  return fd;
+}
+
+bool perf_ctrl_send_command(const char *command) {
+  log_info(gc, marking)("perf_ctrl_send_command %s", command);
+  static int ctrl_fd_opt = read_perf_fd_env("PERF_CTL_FD");
+  static int ctrl_ack_fd_opt = read_perf_fd_env("PERF_CTL_ACK_FD");
+  log_info(gc, marking)("ctrl_fd_opt = %d, ctrl_ack_fd_opt = %d", ctrl_fd_opt, ctrl_ack_fd_opt);
+  if (ctrl_fd_opt == -1) {
+    return false;
+  }
+  int ctrl_fd = ctrl_fd_opt;
+  ssize_t bytes_written = write(ctrl_fd, command, strlen(command));
+
+  if (bytes_written == -1) {
+    fprintf(stderr, "perf_ctrl: Failed to write command '%s' to FIFO (FD %d)\n",
+            command, ctrl_fd);
+    return false;
+  } else if (static_cast<size_t>(bytes_written) != strlen(command)) {
+    fprintf(stderr,
+            "perf_ctrl: Partial write of command '%s' to FIFO (FD %d). Wrote "
+            "%zd of %zd bytes.\n",
+            command, ctrl_fd, bytes_written, strlen(command));
+    return false; // Treat partial write as failure for simplicity
+  }
+  if (ctrl_ack_fd_opt != -1) {
+    int ctrl_ack_fd = ctrl_ack_fd_opt;
+    char buffer[256];
+    memset(buffer, 0, sizeof(buffer));
+    ssize_t bytes_read = read(ctrl_ack_fd, buffer, sizeof(buffer) - 1);
+    if (bytes_read != 5) {
+      fprintf(
+          stderr,
+          "perf_ctrl: Failed to read exactly 4 bytes, from ACK FIFO (FD %d): '%s'\n",
+          ctrl_ack_fd, buffer);
+      return false;
+    }
+    if (strcmp(buffer, "ack\n") == 0) {
+      return true;
+    } else {
+      fprintf(stderr,
+              "perf_ctrl: Unexpected response from ACK FIFO (FD %d): '%s'\n",
+              ctrl_ack_fd, buffer);
+      return false;
+    }
+  }
+  return true;
+}
+
+void ç() { perf_ctrl_send_command("enable\n"); }
+
+void perf_ctrl_disable() { perf_ctrl_send_command("disable\n"); }

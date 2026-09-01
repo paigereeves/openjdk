@@ -217,3 +217,6 @@ class LinearLeastSquareFit : public CHeapObj<mtGC> {
 };
 
 #endif // SHARE_GC_SHARED_GCUTIL_HPP
+
+void perf_ctrl_enable();
+void perf_ctrl_disable();

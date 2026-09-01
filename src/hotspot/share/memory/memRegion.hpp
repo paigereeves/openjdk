@@ -28,6 +28,7 @@
 #include "memory/allocation.hpp"
 #include "utilities/debug.hpp"
 #include "utilities/globalDefinitions.hpp"
+#include "logging/log.hpp"
 
 // A very simple data structure representing a contiguous region
 // region of address space.
@@ -96,6 +97,12 @@ public:
   // Creates and initializes an array of MemRegions of the given length.
   static MemRegion* create_array(size_t length, MEMFLAGS flags);
   static void destroy_array(MemRegion* array, size_t length);
+
+  void annotate(const char* name) {
+    log_info(gc)("MemRegion::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _start, end(), byte_size());
+    int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, _start, byte_size(), name);
+    assert(result == 0, "Failed to set VMA anon name for memory region");
+  }
 };
 
 // For iteration over MemRegion's.

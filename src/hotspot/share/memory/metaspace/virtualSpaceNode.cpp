@@ -128,6 +128,10 @@ bool VirtualSpaceNode::commit_range(MetaWord* p, size_t word_size) {
   // ... and update the commit mask.
   _commit_mask.mark_range_as_committed(p, word_size);
 
+  log_info(gc)("MemRegion::annotate: %s, start: %p, end: %p, size: %zu bytes", "Metaspace", p, p + word_size * BytesPerWord, word_size * BytesPerWord);
+  int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, p, word_size * BytesPerWord, "Metaspace");
+  assert(result == 0, "Failed to set VMA anon name for memory region");
+
 #ifdef ASSERT
   // The commit boundary maintained in the CommitLimiter should be equal the sum of committed words
   // in both class and non-class vslist (outside gtests).

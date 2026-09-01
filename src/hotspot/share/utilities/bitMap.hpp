@@ -28,6 +28,7 @@
 #include "memory/allocation.hpp"
 #include "runtime/atomic.hpp"
 #include "utilities/globalDefinitions.hpp"
+#include "logging/log.hpp"
 
 // Forward decl;
 class BitMapClosure;
@@ -193,6 +194,12 @@ class BitMap {
  public:
   // Pretouch the entire range of memory this BitMap covers.
   void pretouch();
+
+  void annotate(const char* name) {
+    log_info(gc)("BitMap::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _map, _map + size_in_bytes(), size_in_bytes());
+    int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, _map, size_in_bytes(), name);
+    assert(result == 0, "Failed to set VMA anon name for BitMap region");
+  }
 
   // Accessing
   static idx_t calc_size_in_words(size_t size_in_bits) {

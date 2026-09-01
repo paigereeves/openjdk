@@ -42,9 +42,21 @@ class HeapRegion;
 //
 // Each G1BlockOffsetTablePart is owned by a HeapRegion.
 
+
+class G1BlockOffsetTableMappingChangedListener : public G1MappingChangedListener {
+  G1BlockOffsetTable* _bot;
+public:
+  G1BlockOffsetTableMappingChangedListener() : _bot(nullptr) {}
+
+  void set_bot(G1BlockOffsetTable* bot) { _bot = bot; }
+
+  virtual void on_commit(uint start_idx, size_t num_regions, bool zero_filled);
+};
+
 class G1BlockOffsetTable: public CHeapObj<mtGC> {
   friend class G1BlockOffsetTablePart;
   friend class VMStructs;
+  G1BlockOffsetTableMappingChangedListener _listener;
 
 private:
   // The reserved region covered by the table.
@@ -53,6 +65,7 @@ private:
   // Array for keeping offsets for retrieving object start fast given an
   // address.
   volatile u_char* _offset_array;  // byte array keeping backwards offsets
+  size_t _offset_array_size;  // size of byte array, in bytes
 
   void check_offset(size_t offset, const char* msg) const {
     assert(offset < BOTConstants::card_size_in_words(),
@@ -101,6 +114,12 @@ public:
   // Variant of address_for_index that does not check the index for validity.
   inline HeapWord* address_for_index_raw(size_t index) const {
     return _reserved.start() + (index << BOTConstants::log_card_size_in_words());
+  }
+
+  void annotate(const char* name) {
+    log_info(gc)("G1BlockOffsetTable::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _offset_array, _offset_array + _offset_array_size, _offset_array_size);
+    int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, _offset_array, _offset_array_size, name);
+    assert(result == 0, "Failed to set VMA anon name for G1BlockOffsetTable");
   }
 };
 

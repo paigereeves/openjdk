@@ -41,8 +41,11 @@ G1BlockOffsetTable::G1BlockOffsetTable(MemRegion heap, G1RegionToSpaceMapper* st
   _reserved(heap), _offset_array(nullptr) {
 
   MemRegion bot_reserved = storage->reserved();
+  _listener.set_bot(this);
+  storage->set_mapping_changed_listener(&_listener);
 
   _offset_array = (u_char*)bot_reserved.start();
+  _offset_array_size = bot_reserved.byte_size();
 
   log_trace(gc, bot)("G1BlockOffsetTable::G1BlockOffsetTable: ");
   log_trace(gc, bot)("    rs.base(): " PTR_FORMAT "  rs.size(): " SIZE_FORMAT "  rs end(): " PTR_FORMAT,
@@ -304,4 +307,8 @@ void G1BlockOffsetTablePart::set_for_starts_humongous(HeapWord* obj_top, size_t 
   if (fill_size > 0) {
     update_for_block(obj_top, fill_size);
   }
+}
+
+void G1BlockOffsetTableMappingChangedListener::on_commit(uint start_region, size_t num_regions, bool zero_filled) {
+  _bot->annotate("G1 BlockOffsetTable");
 }

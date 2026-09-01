@@ -45,6 +45,7 @@ void G1CardTableChangedListener::on_commit(uint start_idx, size_t num_regions, b
   // Default value for a clean card on the card table is -1. So we cannot take advantage of the zero_filled parameter.
   MemRegion mr(G1CollectedHeap::heap()->bottom_addr_for_region(start_idx), num_regions * HeapRegion::GrainWords);
   _card_table->clear_MemRegion(mr);
+  _card_table->annotate("G1 CardTable");
 }
 
 void G1CardTable::initialize(G1RegionToSpaceMapper* mapper) {

@@ -290,11 +290,11 @@ void G1FullCollector::phase1_mark_live_objects() {
   GCTraceTime(Info, gc, phases) info("Phase 1: Mark live objects", scope()->timer());
 
   {
-    // perf_ctrl_enable();
+    perf_ctrl_enable();
     // Do the actual marking.
     G1FullGCMarkTask marking_task(this);
     run_task(&marking_task);
-    // perf_ctrl_disable();
+    perf_ctrl_disable();
   }
 
   {

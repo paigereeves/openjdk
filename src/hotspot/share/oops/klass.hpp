@@ -295,8 +295,8 @@ protected:
   void set_modifier_flags(jint flags)  { _modifier_flags = flags; }
 
   // size helper
-  int layout_helper() const            { return _layout_helper; }
-  void set_layout_helper(int lh)       { _layout_helper = lh; }
+  int layout_helper() const __attribute__((always_inline)) { return _layout_helper; }
+  void set_layout_helper(int lh)                           { _layout_helper = lh; }
 
   // Note: for instances layout_helper() may include padding.
   // Use InstanceKlass::contains_field_offset to classify field offsets.

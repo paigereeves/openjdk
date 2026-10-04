@@ -47,6 +47,7 @@
 #include "gc/shared/gcId.hpp"
 #include "gc/shared/gcTimer.hpp"
 #include "gc/shared/gcTraceTime.inline.hpp"
+#include "gc/shared/gcUtil.hpp"
 #include "gc/shared/gcVMOperations.hpp"
 #include "gc/shared/referencePolicy.hpp"
 #include "gc/shared/strongRootsScope.hpp"
@@ -1045,7 +1046,9 @@ void G1ConcurrentMark::mark_from_roots() {
   set_concurrency_and_phase(active_workers, true /* concurrent */);
 
   G1CMConcurrentMarkingTask marking_task(this);
+  // perf_ctrl_enable();
   _concurrent_workers->run_task(&marking_task);
+  // perf_ctrl_disable();
   print_stats();
 }
 
@@ -1966,6 +1969,7 @@ bool G1ConcurrentMark::concurrent_cycle_abort() {
   // be moving objects / updating references. So let's wait until
   // they are done. By telling them to abort, they should complete
   // early.
+  // perf_ctrl_disable();
   root_region_scan_abort_and_wait();
 
   // We haven't started a concurrent cycle no need to do anything; we might have

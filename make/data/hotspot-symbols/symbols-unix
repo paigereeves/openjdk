@@ -230,3 +230,6 @@ JVM_FindScopedValueBindings
 JVM_ScopedValueCache
 JVM_SetScopedValueCache
 #
+
+inform_harness_begin_openjdk
+inform_harness_end_openjdk

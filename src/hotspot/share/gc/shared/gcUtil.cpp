@@ -228,6 +228,24 @@ bool perf_ctrl_send_command(const char *command) {
   return true;
 }
 
-void perf_ctrl_enable() { perf_ctrl_send_command("enable\n"); }
+bool in_harness = false;
 
-void perf_ctrl_disable() { perf_ctrl_send_command("disable\n"); }
+void perf_ctrl_enable() {
+  if (in_harness) {
+    perf_ctrl_send_command("enable\n");
+  }
+}
+
+void perf_ctrl_disable() {
+  if (in_harness) {
+    perf_ctrl_send_command("disable\n");
+  }
+}
+
+extern "C" void inform_harness_begin_openjdk() {
+  in_harness = true;
+}
+
+extern "C" void inform_harness_end_openjdk() {
+  in_harness = false;
+}

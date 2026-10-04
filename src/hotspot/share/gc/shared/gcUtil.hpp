@@ -216,7 +216,12 @@ class LinearLeastSquareFit : public CHeapObj<mtGC> {
   bool increment_will_decrease();
 };
 
-#endif // SHARE_GC_SHARED_GCUTIL_HPP
-
 void perf_ctrl_enable();
 void perf_ctrl_disable();
+
+extern "C" {
+  __attribute__((visibility("default"))) void inform_harness_begin_openjdk();
+  __attribute__((visibility("default"))) void inform_harness_end_openjdk();
+}
+
+#endif // SHARE_GC_SHARED_GCUTIL_HPP

@@ -368,7 +368,11 @@ class Thread: public ThreadShadow {
   void set_native_thread_name(const char *name) {
     assert(Thread::current() == this, "set_native_thread_name can only be called on the current thread");
     os::set_native_thread_name(name);
+    log_thread_creation(name);
   }
+
+  // Append "tid","name" for the current thread to output/threads.csv
+  static void log_thread_creation(const char* name);
 
   // Support for Unhandled Oop detection
   // Add the field for both, fastdebug and debug, builds to keep

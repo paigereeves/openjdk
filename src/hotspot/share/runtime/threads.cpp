@@ -350,6 +350,8 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   Universe::set_main_thread_group(thread_group());
   initialize_class(vmSymbols::java_lang_Thread(), CHECK);
   create_initial_thread(thread_group, main_thread, CHECK);
+  // The primordial thread never goes through set_native_thread_name
+  Thread::log_thread_creation("main");
 
   // The VM creates objects of this class.
   initialize_class(vmSymbols::java_lang_Module(), CHECK);

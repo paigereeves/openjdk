@@ -52,6 +52,9 @@
 #include "jfr/jfr.hpp"
 #endif
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #ifndef USE_LIBRARY_BASED_TLS_ONLY
 // Current thread is maintained as a thread-local variable
 THREAD_LOCAL Thread* Thread::_thr_current = nullptr;
@@ -62,6 +65,33 @@ THREAD_LOCAL Thread* Thread::_thr_current = nullptr;
 // JavaThread
 
 DEBUG_ONLY(Thread* Thread::_starting_thread = nullptr;)
+
+void Thread::log_thread_creation(const char* name) {
+  if (name == nullptr) {
+    name = "";
+  }
+  // Build the whole line first so it goes out in a single O_APPEND write
+  // and lines from concurrently starting threads don't interleave.
+  char line[512];
+  int pos = jio_snprintf(line, sizeof(line), "\"" UINTX_FORMAT "\",\"", os::current_thread_id());
+  const int limit = (int)sizeof(line) - 3; // room for closing quote, newline, NUL
+  for (const char* p = name; *p != '\0' && pos < limit - 1; p++) {
+    if (*p == '"') {
+      line[pos++] = '"'; // CSV escapes a quote by doubling it
+    }
+    line[pos++] = *p;
+  }
+  line[pos++] = '"';
+  line[pos++] = '\n';
+  line[pos] = '\0';
+
+  int fd = os::open("output/threads.csv", O_WRONLY | O_CREAT | O_APPEND, 0644);
+  if (fd < 0) {
+    return;
+  }
+  os::write(fd, line, pos);
+  ::close(fd);
+}
 
 Thread::Thread() {
 

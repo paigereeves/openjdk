@@ -72,7 +72,7 @@ class G1FullGCMarker : public CHeapObj<mtGC> {
 
   inline bool is_empty();
   inline void push_objarray(oop obj, size_t index);
-  inline bool mark_object(oop obj);
+  inline bool mark_object(oop obj);// __attribute__((always_inline));
 
   // Marking helpers
   inline void follow_object(oop obj);
@@ -99,7 +99,7 @@ public:
   PreservedMarks*    preserved_stack() { return _preserved_stack; }
 
   // Marking entry points
-  template <class T> inline void mark_and_push(T* p);
+  template <class T> inline void mark_and_push(T* p);// __attribute__((always_inline));
 
   inline void follow_marking_stacks();
   void complete_marking(OopQueueSet* oop_stacks,

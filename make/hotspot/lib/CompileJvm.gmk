@@ -142,6 +142,25 @@ $(call FillFindCache, $(JVM_SRC_DIRS))
 ################################################################################
 # Now set up the actual compilation of the main hotspot native library
 
+# Two-phase PGO build: set JVM_PGO_PHASE=generate to build an instrumented
+# jvm, run the training workload to produce profile data, then set
+# JVM_PGO_PHASE=use to rebuild with that data. Each phase is a separate make
+# invocation writing to the same NAME/OBJECT_DIR, so building "generate" and
+# "use" objects in the same tree at once is not supported. Changing
+# JVM_PGO_PHASE between invocations is tracked via COMPILE_VARDEPS, so all
+# objects are automatically recompiled with the new flags.
+JVM_PGO_PHASE ?= none
+JVM_PGO_DIR ?= none
+ifeq ($(JVM_PGO_PHASE), generate)
+  JVM_PGO_CFLAGS := -fprofile-generate=$(JVM_PGO_DIR)
+  JVM_PGO_LDFLAGS := -fprofile-generate=$(JVM_PGO_DIR)
+else ifeq ($(JVM_PGO_PHASE), use)
+  JVM_PGO_CFLAGS := -fprofile-use=$(JVM_PGO_DIR) -fprofile-correction -Wmissing-profile -Werror
+  JVM_PGO_LDFLAGS := -fprofile-use=$(JVM_PGO_DIR) -Wmissing-profile
+else ifneq ($(JVM_PGO_PHASE), none)
+  $(error Unknown value for JVM_PGO_PHASE: $(JVM_PGO_PHASE). Must be none, generate or use)
+endif
+
 $(eval $(call SetupJdkLibrary, BUILD_LIBJVM, \
     NAME := jvm, \
     TOOLCHAIN := TOOLCHAIN_LINK_CXX, \
@@ -150,7 +169,7 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBJVM, \
     EXCLUDES := $(JVM_EXCLUDES), \
     EXCLUDE_FILES := $(JVM_EXCLUDE_FILES), \
     EXCLUDE_PATTERNS := $(JVM_EXCLUDE_PATTERNS), \
-    CFLAGS := $(JVM_CFLAGS), \
+    CFLAGS := $(JVM_CFLAGS) $(JVM_PGO_CFLAGS), \
     abstract_vm_version.cpp_CXXFLAGS := $(CFLAGS_VM_VERSION), \
     arguments.cpp_CXXFLAGS := $(CFLAGS_VM_VERSION), \
     DISABLED_WARNINGS_gcc := $(DISABLED_WARNINGS_gcc), \
@@ -184,7 +203,7 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBJVM, \
     DISABLED_WARNINGS_xlc := $(DISABLED_WARNINGS_xlc), \
     DISABLED_WARNINGS_microsoft := $(DISABLED_WARNINGS_microsoft), \
     ASFLAGS := $(JVM_ASFLAGS), \
-    LDFLAGS := $(JVM_LDFLAGS), \
+    LDFLAGS := $(JVM_LDFLAGS) $(JVM_PGO_LDFLAGS), \
     LIBS := $(JVM_LIBS), \
     OPTIMIZATION := $(JVM_OPTIMIZATION), \
     OBJECT_DIR := $(JVM_OUTPUTDIR)/objs, \

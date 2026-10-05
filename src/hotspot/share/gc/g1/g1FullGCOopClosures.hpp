@@ -68,9 +68,9 @@ public:
     _marker(marker),
     _worker_id(worker_id) { }
 
-  template <class T> inline void do_oop_work(T* p);
-  virtual void do_oop(oop* p);
-  virtual void do_oop(narrowOop* p);
+  template <class T> inline void do_oop_work(T* p);// __attribute__((always_inline));
+  virtual void do_oop(oop* p);// __attribute__((always_inline));
+  virtual void do_oop(narrowOop* p);// __attribute__((always_inline));
 };
 
 class G1AdjustClosure : public BasicOopIterateClosure {

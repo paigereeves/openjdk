@@ -55,7 +55,9 @@ void G1FullGCMarkTask::work(uint worker_id) {
   }
 
   // Mark stack is populated, now process and drain it.
+  // perf_ctrl_enable();
   marker->complete_marking(collector()->oop_queue_set(), collector()->array_queue_set(), &_terminator);
+  // perf_ctrl_disable();
   marker->flush_mark_stats_cache();
 
   // This is the point where the entire marking should have completed.

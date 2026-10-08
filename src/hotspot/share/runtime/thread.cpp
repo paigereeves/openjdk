@@ -244,6 +244,16 @@ void Thread::call_run() {
   assert(Thread::current_or_null() != nullptr, "current thread is unset");
   assert(Thread::current_or_null() == this, "current thread is wrong");
 
+  {
+    // JavaThread::name() copies the java.lang.Thread name into the resource area.
+    ResourceMark rm(this);
+    char buf[80]; // ANON_VMA_NAME_MAX_LEN, including the terminating NUL
+    os::snprintf(buf, sizeof(buf), "%s Stack", this->name());
+    int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME,
+                       this->stack_end(), this->stack_size(), buf);
+    assert(result == 0, "Failed to set VMA anon name for thread stack.");
+  }
+
   // Perform common initialization actions
 
   MACOS_AARCH64_ONLY(this->init_wx());

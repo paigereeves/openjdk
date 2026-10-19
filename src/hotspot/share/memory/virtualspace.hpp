@@ -244,7 +244,7 @@ class VirtualSpace {
   void print() const;
 
   void annotate(const char* name) {
-    log_info(gc)("VirtualSpace::annotate: %s, low: %p, high: %p, size: %zu bytes", name, _low, _high, _high - _low);
+    log_debug(gc)("VirtualSpace::annotate: %s, low: %p, high: %p, size: %zu bytes", name, _low, _high, _high - _low);
     int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, _low, _high - _low, name);
     assert(result == 0, "Failed to set VMA anon name for virtual space");
   }

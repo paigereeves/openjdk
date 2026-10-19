@@ -196,7 +196,7 @@ class BitMap {
   void pretouch();
 
   void annotate(const char* name) {
-    log_info(gc)("BitMap::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _map, _map + size_in_bytes(), size_in_bytes());
+    log_debug(gc)("BitMap::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _map, _map + size_in_bytes(), size_in_bytes());
     int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, _map, size_in_bytes(), name);
     assert(result == 0, "Failed to set VMA anon name for BitMap region");
   }

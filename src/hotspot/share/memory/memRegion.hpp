@@ -99,7 +99,7 @@ public:
   static void destroy_array(MemRegion* array, size_t length);
 
   void annotate(const char* name) {
-    log_info(gc)("MemRegion::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _start, end(), byte_size());
+    log_debug(gc)("MemRegion::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _start, end(), byte_size());
     int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, _start, byte_size(), name);
     assert(result == 0, "Failed to set VMA anon name for memory region");
   }

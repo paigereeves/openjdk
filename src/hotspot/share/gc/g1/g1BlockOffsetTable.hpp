@@ -117,7 +117,7 @@ public:
   }
 
   void annotate(const char* name) {
-    log_info(gc)("G1BlockOffsetTable::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _offset_array, _offset_array + _offset_array_size, _offset_array_size);
+    log_debug(gc)("G1BlockOffsetTable::annotate: %s, start: %p, end: %p, size: %zu bytes", name, _offset_array, _offset_array + _offset_array_size, _offset_array_size);
     int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, _offset_array, _offset_array_size, name);
     assert(result == 0, "Failed to set VMA anon name for G1BlockOffsetTable");
   }

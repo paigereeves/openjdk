@@ -43,6 +43,7 @@
 bool TenuredGeneration::grow_by(size_t bytes) {
   assert_correct_size_change_locking();
   bool result = _virtual_space.expand_by(bytes);
+  _virtual_space.annotate("Tenured Generation");
   if (result) {
     size_t new_word_size =
        heap_word_size(_virtual_space.committed_size());
@@ -305,6 +306,7 @@ TenuredGeneration::TenuredGeneration(ReservedSpace rs,
                                     heap_word_size(initial_byte_size));
   MemRegion committed_mr(start, heap_word_size(initial_byte_size));
   _rs->resize_covered_region(committed_mr);
+  committed_mr.annotate("Tenured Generation");
 
   // Verify that the start and end of this generation is the start of a card.
   // If this wasn't true, a single card could span more than on generation,

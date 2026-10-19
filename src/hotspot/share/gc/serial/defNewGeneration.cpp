@@ -338,6 +338,7 @@ DefNewGeneration::DefNewGeneration(ReservedSpace rs,
   MemRegion cmr((HeapWord*)_virtual_space.low(),
                 (HeapWord*)_virtual_space.high());
   GenCollectedHeap* gch = GenCollectedHeap::heap();
+  cmr.annotate("Tenured Generation");
 
   gch->rem_set()->resize_covered_region(cmr);
 
@@ -491,6 +492,7 @@ void DefNewGeneration::swap_spaces() {
 bool DefNewGeneration::expand(size_t bytes) {
   HeapWord* prev_high = (HeapWord*) _virtual_space.high();
   bool success = _virtual_space.expand_by(bytes);
+  _virtual_space.annotate("Young Generation");
   if (success && ZapUnusedHeapArea) {
     // Mangle newly committed space immediately because it
     // can be done here more simply that after the new

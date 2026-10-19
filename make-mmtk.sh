@@ -2,7 +2,9 @@
 set -e
 
 echo $1 $2
-make clean CONF=linux-x86_64-server-release
+if [ -e "$PWD/build/linux-x86_64-server-release" ]; then
+    make clean CONF=linux-x86_64-server-release
+fi
 # make CONF=linux-x86_64-server-release images THIRD_PARTY_HEAP=$PWD/../mmtk-openjdk/openjdk
 bash ../mmtk-openjdk/.github/scripts/pgo-build.sh $1
 if [ -e "../objdump/"$2".txt" ]; then

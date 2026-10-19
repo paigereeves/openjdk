@@ -76,6 +76,7 @@
 #include "utilities/align.hpp"
 #include "utilities/formatBuffer.hpp"
 #include "utilities/growableArray.hpp"
+#include "utilities/ostream.hpp"
 
 bool G1CMBitMapClosure::do_addr(HeapWord* const addr) {
   assert(addr < _cm->finger(), "invariant");
@@ -387,6 +388,7 @@ G1ConcurrentMark::G1ConcurrentMark(G1CollectedHeap* g1h,
   _second_overflow_barrier_sync(),
 
   _completed_mark_cycles(0),
+  _ref_dist_hist_active(false),
   _has_overflown(false),
   _concurrent(false),
   _has_aborted(false),
@@ -1046,10 +1048,41 @@ void G1ConcurrentMark::mark_from_roots() {
   set_concurrency_and_phase(active_workers, true /* concurrent */);
 
   G1CMConcurrentMarkingTask marking_task(this);
-  perf_ctrl_enable();
+  start_ref_dist_hist();
+  // perf_ctrl_enable();
   _concurrent_workers->run_task(&marking_task);
-  perf_ctrl_disable();
+  // perf_ctrl_disable();
+  // No-op if a concurrent_cycle_abort() already printed it.
+  print_ref_dist_hist("end");
   print_stats();
+}
+
+void G1ConcurrentMark::start_ref_dist_hist() {
+  for (uint i = 0; i < _max_num_tasks; ++i) {
+    _tasks[i]->clear_ref_dist_hist();
+  }
+  Atomic::release_store(&_ref_dist_hist_active, true);
+}
+
+void G1ConcurrentMark::print_ref_dist_hist(const char* reason) {
+  // Only one of the end of mark_from_roots() and concurrent_cycle_abort() prints.
+  if (!Atomic::cmpxchg(&_ref_dist_hist_active, true, false)) {
+    return;
+  }
+  size_t total = 0;
+  size_t hist[G1CMTask::RefDistHistBuckets] = {};
+  for (uint i = 0; i < _max_num_tasks; ++i) {
+    for (uint b = 0; b < G1CMTask::RefDistHistBuckets; ++b) {
+      hist[b] += _tasks[i]->ref_dist_hist(b);
+    }
+  }
+  for (uint b = 0; b < G1CMTask::RefDistHistBuckets; ++b) {
+    total += hist[b];
+  }
+  tty->print_cr("G1 concurrent trace ref distance histogram (%s, total %zu): log 2 dist bucket: count", reason, total);
+  for (uint b = 0; b < G1CMTask::RefDistHistBuckets; ++b) {
+    tty->print_cr("%u: %zu", b, hist[b]);
+  }
 }
 
 const char* G1ConcurrentMark::verify_location_string(VerifyLocation location) {
@@ -1970,6 +2003,8 @@ bool G1ConcurrentMark::concurrent_cycle_abort() {
   // they are done. By telling them to abort, they should complete
   // early.
   perf_ctrl_disable();
+  // No-op unless a concurrent trace is in progress.
+  print_ref_dist_hist("abort");
   root_region_scan_abort_and_wait();
 
   // We haven't started a concurrent cycle no need to do anything; we might have
@@ -2136,6 +2171,12 @@ void G1CMTask::reset(G1CMBitMap* mark_bitmap) {
   _termination_start_time_ms     = 0.0;
 
   _mark_stats_cache.reset();
+}
+
+void G1CMTask::clear_ref_dist_hist() {
+  for (uint b = 0; b < RefDistHistBuckets; ++b) {
+    _ref_dist_hist[b] = 0;
+  }
 }
 
 bool G1CMTask::should_exit_termination() {
@@ -2864,6 +2905,7 @@ G1CMTask::G1CMTask(uint worker_id,
 {
   guarantee(task_queue != nullptr, "invariant");
 
+  clear_ref_dist_hist();
   _marking_step_diff_ms.add(0.5);
 }
 

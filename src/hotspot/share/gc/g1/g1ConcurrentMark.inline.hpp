@@ -39,6 +39,7 @@
 #include "gc/shared/suspendibleThreadSet.hpp"
 #include "gc/shared/taskqueue.inline.hpp"
 #include "utilities/bitMap.inline.hpp"
+#include "utilities/powerOfTwo.hpp"
 
 inline bool G1CMIsAliveClosure::do_object_b(oop obj) {
   // Check whether the passed in object is null. During discovery the referent
@@ -261,9 +262,24 @@ inline bool G1CMTask::make_reference_grey(oop obj) {
 }
 
 template <class T>
+inline void G1CMTask::record_ref_dist(T* p, oop obj) {
+  if (obj == nullptr) {
+    _ref_dist_hist[35]++;
+    return;
+  }
+  uintptr_t const obj_addr = cast_from_oop<uintptr_t>(obj);
+  uintptr_t const p_addr = p2i(p);
+  int const dist = obj_addr - p_addr;
+  uint const log2 = (dist == 0) ? 0 : ((dist < 0) ? -(uint)log2i(-dist) : (uint)log2i(dist));
+  uint const bucket = log2 + 35;
+  _ref_dist_hist[bucket]++;
+}
+
+template <class T>
 inline bool G1CMTask::deal_with_reference(T* p) {
   increment_refs_reached();
   oop const obj = RawAccess<MO_RELAXED>::oop_load(p);
+  record_ref_dist(p, obj);
   if (obj == nullptr) {
     return false;
   }

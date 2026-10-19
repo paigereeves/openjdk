@@ -330,6 +330,10 @@ class G1ConcurrentMark : public CHeapObj<mtGC> {
   // Number of completed mark cycles.
   volatile uint           _completed_mark_cycles;
 
+  // True between the start of a concurrent trace (mark_from_roots) and the
+  // point where its reference distance histogram has been printed.
+  volatile bool           _ref_dist_hist_active;
+
   // This is set by any task, when an overflow on the global data
   // structures is detected
   volatile bool           _has_overflown;
@@ -397,6 +401,11 @@ class G1ConcurrentMark : public CHeapObj<mtGC> {
 
   // Prints all gathered CM-related statistics
   void print_stats();
+
+  // Zero the reference distance histogram of every task and mark it active.
+  void start_ref_dist_hist();
+  // Print the summed reference distance histogram if it is still active.
+  void print_ref_dist_hist(const char* reason);
 
   HeapWord*           finger()       { return _finger;   }
   bool                concurrent()   { return _concurrent; }
@@ -620,6 +629,10 @@ private:
 
 // A class representing a marking task.
 class G1CMTask : public TerminatorTerminator {
+public:
+  // Number of buckets in the histogram of log2(|obj - p|).
+  static const uint RefDistHistBuckets = 71;
+
 private:
   enum PrivateConstants {
     // The regular clock call is called once the scanned words reaches
@@ -681,6 +694,9 @@ private:
   // Initial value of _refs_reached_limit (i.e. what it was before
   // it was decreased).
   size_t                      _real_refs_reached_limit;
+
+  // Histogram of log2 distance object to slot for each loaded slot in the concurrent trace, with slots 0-34 for backward references and 36-70 for forward references.
+  size_t                      _ref_dist_hist[RefDistHistBuckets];
 
   // If true, then the task has aborted for some reason
   bool                        _has_aborted;
@@ -785,6 +801,11 @@ public:
 
   // Increment the number of references this task has visited.
   void increment_refs_reached() { ++_refs_reached; }
+
+  void clear_ref_dist_hist();
+  size_t ref_dist_hist(uint bucket) const { return _ref_dist_hist[bucket]; }
+  // Add one to the bucket for log2 distance p to obj.
+  template <class T> inline void record_ref_dist(T* p, oop obj);
 
   // Grey the object by marking it.  If not already marked, push it on
   // the local queue if below the finger. obj is required to be below its region's TAMS.

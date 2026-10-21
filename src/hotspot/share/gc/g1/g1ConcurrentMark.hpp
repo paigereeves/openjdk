@@ -333,6 +333,8 @@ class G1ConcurrentMark : public CHeapObj<mtGC> {
   // True between the start of a concurrent trace (mark_from_roots) and the
   // point where its reference distance histogram has been printed.
   volatile bool           _ref_dist_hist_active;
+  // Output file for the reference distance histogram, opened on first print.
+  fileStream*             _ref_dist_out;
 
   // This is set by any task, when an overflow on the global data
   // structures is detected
@@ -630,8 +632,11 @@ private:
 // A class representing a marking task.
 class G1CMTask : public TerminatorTerminator {
 public:
-  // Number of buckets in the histogram of log2(|obj - p|).
-  static const uint RefDistHistBuckets = 71;
+  // Buckets 0-34: obj below p, 34 - log2(p - obj)
+  // Buckets 35-69: obj above p, 35 + log2(obj - p)
+  // Bucket 70: null
+  // Bucket 71: |obj - p| >= 2^35
+  static const uint RefDistHistBuckets = 72;
 
 private:
   enum PrivateConstants {

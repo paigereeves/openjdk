@@ -264,14 +264,22 @@ inline bool G1CMTask::make_reference_grey(oop obj) {
 template <class T>
 inline void G1CMTask::record_ref_dist(T* p, oop obj) {
   if (obj == nullptr) {
-    _ref_dist_hist[35]++;
+    _ref_dist_hist[70]++;
     return;
   }
   uintptr_t const obj_addr = cast_from_oop<uintptr_t>(obj);
   uintptr_t const p_addr = p2i(p);
-  int const dist = obj_addr - p_addr;
-  uint const log2 = (dist == 0) ? 0 : ((dist < 0) ? -(uint)log2i(-dist) : (uint)log2i(dist));
-  uint const bucket = log2 + 35;
+  bool const backward = obj_addr < p_addr;
+  uintptr_t const mag = backward ? p_addr - obj_addr : obj_addr - p_addr;
+  uint const log2 = (mag == 0) ? 0 : (uint)log2i(mag);
+  uint bucket;
+  if (log2 > 34) {
+    bucket = 71;
+  } else if (backward) {
+    bucket = 34 - log2;
+  } else {
+    bucket = 35 + log2;
+  }
   _ref_dist_hist[bucket]++;
 }
 
@@ -283,6 +291,11 @@ inline bool G1CMTask::deal_with_reference(T* p) {
   if (obj == nullptr) {
     return false;
   }
+
+  // if (!_g1h->heap_region_containing(obj)->obj_allocated_since_marking_start(obj) && !_mark_bitmap->is_marked(obj)) {
+  //   record_ref_dist(p, obj);
+  // }
+
   return make_reference_grey(obj);
 }
 

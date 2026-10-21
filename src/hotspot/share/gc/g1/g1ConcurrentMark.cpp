@@ -78,6 +78,8 @@
 #include "utilities/growableArray.hpp"
 #include "utilities/ostream.hpp"
 
+#include <sys/stat.h>
+
 bool G1CMBitMapClosure::do_addr(HeapWord* const addr) {
   assert(addr < _cm->finger(), "invariant");
   assert(addr >= _task->finger(), "invariant");
@@ -389,6 +391,7 @@ G1ConcurrentMark::G1ConcurrentMark(G1CollectedHeap* g1h,
 
   _completed_mark_cycles(0),
   _ref_dist_hist_active(false),
+  _ref_dist_out(nullptr),
   _has_overflown(false),
   _concurrent(false),
   _has_aborted(false),
@@ -418,6 +421,17 @@ G1ConcurrentMark::G1ConcurrentMark(G1CollectedHeap* g1h,
   assert(CGC_lock != nullptr, "CGC_lock must be initialized");
 
   _mark_bitmap.initialize(g1h->reserved(), bitmap_storage);
+
+  // Open the reference distance histogram file up front so it exists even if
+  // no concurrent trace reaches its print (undo cycles, aborts, early exit).
+  // output/ is otherwise only created at VM exit (see before_exit()).
+  mkdir("output", 0777);
+  _ref_dist_out = new (mtGC) fileStream("output/refdist.txt", "w");
+  if (!_ref_dist_out->is_open()) {
+    char cwd[JVM_MAXPATHLEN];
+    warning("Could not open output/refdist.txt (%s), cwd: %s",
+            os::strerror(errno), os::get_current_directory(cwd, sizeof(cwd)) != nullptr ? cwd : "?");
+  }
 
   // Create & start ConcurrentMark thread.
   _cm_thread = new G1ConcurrentMarkThread(this);
@@ -1079,10 +1093,19 @@ void G1ConcurrentMark::print_ref_dist_hist(const char* reason) {
   for (uint b = 0; b < G1CMTask::RefDistHistBuckets; ++b) {
     total += hist[b];
   }
-  tty->print_cr("G1 concurrent trace ref distance histogram (%s, total %zu): log 2 dist bucket: count", reason, total);
-  for (uint b = 0; b < G1CMTask::RefDistHistBuckets; ++b) {
-    tty->print_cr("%u: %zu", b, hist[b]);
+  // Written to its own file so it is not interleaved with the program's stdout.
+  // Opened (and truncated) once per VM run in the constructor.
+  if (!_ref_dist_out->is_open()) {
+    return;
   }
+  outputStream* out = _ref_dist_out;
+  out->print_cr("G1 concurrent trace ref distance histogram (%s, total %zu): log 2 dist bucket: count", reason, total);
+  for (uint b = 0; b < G1CMTask::RefDistHistBuckets - 2; ++b) {
+    out->print_cr("%u: %zu", b, hist[b]);
+  }
+  out->print_cr("null references: %zu", hist[70]);
+  out->print_cr("out of bounds references: %zu", hist[71]);
+  out->flush();
 }
 
 const char* G1ConcurrentMark::verify_location_string(VerifyLocation location) {

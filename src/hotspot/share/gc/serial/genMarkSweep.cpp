@@ -168,11 +168,13 @@ void GenMarkSweep::mark_sweep_phase1(bool clear_all_softrefs) {
 
     CLDClosure* weak_cld_closure = ClassUnloading ? nullptr : &follow_cld_closure;
     MarkingCodeBlobClosure mark_code_closure(&follow_root_closure, !CodeBlobToOopClosure::FixRelocations, true);
+    // perf_ctrl_enable();
     gch->process_roots(GenCollectedHeap::SO_None,
                        &follow_root_closure,
                        &follow_cld_closure,
                        weak_cld_closure,
                        &mark_code_closure);
+    // perf_ctrl_disable();
   }
 
   // Process reference objects found during marking

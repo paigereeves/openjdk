@@ -333,7 +333,8 @@ class G1ConcurrentMark : public CHeapObj<mtGC> {
   // True between the start of a concurrent trace (mark_from_roots) and the
   // point where its reference distance histogram has been printed.
   volatile bool           _ref_dist_hist_active;
-  // Output file for the reference distance histogram, opened on first print.
+  // Output file for the reference distance histogram, opened in the constructor
+  // when print_dist_hist_to_file is set; nullptr otherwise.
   fileStream*             _ref_dist_out;
 
   // This is set by any task, when an overflow on the global data

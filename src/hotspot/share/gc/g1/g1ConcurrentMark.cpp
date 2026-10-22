@@ -81,6 +81,10 @@
 
 #include <sys/stat.h>
 
+// If true, the reference distance histogram is written to output/refdist.txt,
+// otherwise to stdout in a single write so it is not interleaved with the workload.
+static const bool print_dist_hist_to_file = false;
+
 bool G1CMBitMapClosure::do_addr(HeapWord* const addr) {
   assert(addr < _cm->finger(), "invariant");
   assert(addr >= _task->finger(), "invariant");
@@ -426,12 +430,14 @@ G1ConcurrentMark::G1ConcurrentMark(G1CollectedHeap* g1h,
   // Open the reference distance histogram file up front so it exists even if
   // no concurrent trace reaches its print (undo cycles, aborts, early exit).
   // output/ is otherwise only created at VM exit (see before_exit()).
-  mkdir("output", 0777);
-  _ref_dist_out = new (mtGC) fileStream("output/refdist.txt", "w");
-  if (!_ref_dist_out->is_open()) {
-    char cwd[JVM_MAXPATHLEN];
-    warning("Could not open output/refdist.txt (%s), cwd: %s",
-            os::strerror(errno), os::get_current_directory(cwd, sizeof(cwd)) != nullptr ? cwd : "?");
+  if (print_dist_hist_to_file) {
+    mkdir("output", 0777);
+    _ref_dist_out = new (mtGC) fileStream("output/refdist.txt", "w");
+    if (!_ref_dist_out->is_open()) {
+      char cwd[JVM_MAXPATHLEN];
+      warning("Could not open output/refdist.txt (%s), cwd: %s",
+              os::strerror(errno), os::get_current_directory(cwd, sizeof(cwd)) != nullptr ? cwd : "?");
+    }
   }
 
   // Create & start ConcurrentMark thread.
@@ -1090,21 +1096,28 @@ void G1ConcurrentMark::print_ref_dist_hist(const char* reason) {
       hist[b] += _tasks[i]->ref_dist_hist(b);
     }
   }
-  // Written to its own file so it is not interleaved with the program's stdout.
-  // Opened (and truncated) once per VM run in the constructor.
-  if (!_ref_dist_out->is_open()) {
-    return;
-  }
-  outputStream* out = _ref_dist_out;
-  out->print_cr("Slot - object distance histogram (%s, mark cycle %u, GC %u, " JLONG_FORMAT " microseconds since start):",
-                reason, _g1h->old_marking_cycles_started(), _g1h->total_collections(),
-                (jlong)(os::elapsedTime() * MICROUNITS));
+  // Build the whole histogram first so it is emitted with a single write.
+  stringStream ss;
+  ss.print_cr("\nSlot - object distance histogram (%s, mark cycle %u, GC %u, " JLONG_FORMAT " microseconds since start):",
+              reason, _g1h->old_marking_cycles_started(), _g1h->total_collections(),
+              (jlong)(os::elapsedTime() * MICROUNITS));
   for (uint b = 0; b < G1CMTask::RefDistHistBuckets - 2; ++b) {
-    out->print_cr("%u: %zu", b, hist[b]);
+    ss.print_cr("%u: %zu", b, hist[b]);
   }
-  out->print_cr("null references: %zu", hist[70]);
-  out->print_cr("out of bounds references: %zu", hist[71]);
-  out->flush();
+  ss.print_cr("null references: %zu", hist[70]);
+  ss.print_cr("out of bounds references: %zu", hist[71]);
+
+  if (print_dist_hist_to_file) {
+    // Opened (and truncated) once per VM run in the constructor.
+    if (!_ref_dist_out->is_open()) {
+      return;
+    }
+    _ref_dist_out->write(ss.base(), ss.size());
+    _ref_dist_out->flush();
+  } else {
+    // One write(2) to stdout, so workload output cannot land inside the histogram.
+    tty->write(ss.base(), ss.size());
+  }
 }
 
 const char* G1ConcurrentMark::verify_location_string(VerifyLocation location) {

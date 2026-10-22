@@ -70,6 +70,7 @@
 #include "runtime/handles.inline.hpp"
 #include "runtime/java.hpp"
 #include "runtime/orderAccess.hpp"
+#include "runtime/os.hpp"
 #include "runtime/prefetch.inline.hpp"
 #include "runtime/threads.hpp"
 #include "services/memTracker.hpp"
@@ -1083,15 +1084,11 @@ void G1ConcurrentMark::print_ref_dist_hist(const char* reason) {
   if (!Atomic::cmpxchg(&_ref_dist_hist_active, true, false)) {
     return;
   }
-  size_t total = 0;
   size_t hist[G1CMTask::RefDistHistBuckets] = {};
   for (uint i = 0; i < _max_num_tasks; ++i) {
     for (uint b = 0; b < G1CMTask::RefDistHistBuckets; ++b) {
       hist[b] += _tasks[i]->ref_dist_hist(b);
     }
-  }
-  for (uint b = 0; b < G1CMTask::RefDistHistBuckets; ++b) {
-    total += hist[b];
   }
   // Written to its own file so it is not interleaved with the program's stdout.
   // Opened (and truncated) once per VM run in the constructor.
@@ -1099,7 +1096,9 @@ void G1ConcurrentMark::print_ref_dist_hist(const char* reason) {
     return;
   }
   outputStream* out = _ref_dist_out;
-  out->print_cr("G1 concurrent trace ref distance histogram (%s, total %zu): log 2 dist bucket: count", reason, total);
+  out->print_cr("Slot - object distance histogram (%s, mark cycle %u, GC %u, " JLONG_FORMAT " microseconds since start):",
+                reason, _g1h->old_marking_cycles_started(), _g1h->total_collections(),
+                (jlong)(os::elapsedTime() * MICROUNITS));
   for (uint b = 0; b < G1CMTask::RefDistHistBuckets - 2; ++b) {
     out->print_cr("%u: %zu", b, hist[b]);
   }

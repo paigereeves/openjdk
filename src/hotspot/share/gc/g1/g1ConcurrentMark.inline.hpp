@@ -262,9 +262,9 @@ inline bool G1CMTask::make_reference_grey(oop obj) {
 }
 
 template <class T>
-inline void G1CMTask::record_ref_dist(T* p, oop obj) {
+inline void G1CMTask::record_ref_dist(T* p, oop obj, size_t* hist) {
   if (obj == nullptr) {
-    _ref_dist_hist[70]++;
+    hist[70]++;
     return;
   }
   uintptr_t const obj_addr = cast_from_oop<uintptr_t>(obj);
@@ -280,21 +280,23 @@ inline void G1CMTask::record_ref_dist(T* p, oop obj) {
   } else {
     bucket = 35 + log2;
   }
-  _ref_dist_hist[bucket]++;
+  hist[bucket]++;
 }
 
 template <class T>
 inline bool G1CMTask::deal_with_reference(T* p) {
   increment_refs_reached();
   oop const obj = RawAccess<MO_RELAXED>::oop_load(p);
-  record_ref_dist(p, obj);
+  record_ref_dist(p, obj, _all_slots_histogram);
   if (obj == nullptr) {
     return false;
   }
 
-  // if (!_g1h->heap_region_containing(obj)->obj_allocated_since_marking_start(obj) && !_mark_bitmap->is_marked(obj)) {
-  //   record_ref_dist(p, obj);
-  // }
+  // Objects allocated since marking started are implicitly live, so only
+  // count targets below TAMS that are not yet marked in the bitmap.
+  if (!_g1h->heap_region_containing(obj)->obj_allocated_since_marking_start(obj) && !_mark_bitmap->is_marked(obj)) {
+    record_ref_dist(p, obj, _unmarked_slots_histogram);
+  }
 
   return make_reference_grey(obj);
 }

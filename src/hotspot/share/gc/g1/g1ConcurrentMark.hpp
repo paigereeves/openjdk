@@ -701,8 +701,11 @@ private:
   // it was decreased).
   size_t                      _real_refs_reached_limit;
 
-  // Histogram of log2 distance object to slot for each loaded slot in the concurrent trace, with slots 0-34 for backward references and 36-70 for forward references.
-  size_t                      _ref_dist_hist[RefDistHistBuckets];
+  // Histograms of log2 slot to object distance over the concurrent trace
+  // (bucket layout above): every loaded slot, and slots whose target was not
+  // yet marked when the slot was loaded.
+  size_t                      _all_slots_histogram[RefDistHistBuckets];
+  size_t                      _unmarked_slots_histogram[RefDistHistBuckets];
 
   // If true, then the task has aborted for some reason
   bool                        _has_aborted;
@@ -809,9 +812,10 @@ public:
   void increment_refs_reached() { ++_refs_reached; }
 
   void clear_ref_dist_hist();
-  size_t ref_dist_hist(uint bucket) const { return _ref_dist_hist[bucket]; }
-  // Add one to the bucket for log2 distance p to obj.
-  template <class T> inline void record_ref_dist(T* p, oop obj);
+  size_t all_slots_histogram(uint bucket) const      { return _all_slots_histogram[bucket]; }
+  size_t unmarked_slots_histogram(uint bucket) const { return _unmarked_slots_histogram[bucket]; }
+  // Add one to the bucket of hist for log2 distance p to obj.
+  template <class T> inline void record_ref_dist(T* p, oop obj, size_t* hist);
 
   // Grey the object by marking it.  If not already marked, push it on
   // the local queue if below the finger. obj is required to be below its region's TAMS.

@@ -1090,22 +1090,31 @@ void G1ConcurrentMark::print_ref_dist_hist(const char* reason) {
   if (!Atomic::cmpxchg(&_ref_dist_hist_active, true, false)) {
     return;
   }
-  size_t hist[G1CMTask::RefDistHistBuckets] = {};
+  size_t all[G1CMTask::RefDistHistBuckets] = {};
+  size_t unmarked[G1CMTask::RefDistHistBuckets] = {};
   for (uint i = 0; i < _max_num_tasks; ++i) {
     for (uint b = 0; b < G1CMTask::RefDistHistBuckets; ++b) {
-      hist[b] += _tasks[i]->ref_dist_hist(b);
+      all[b] += _tasks[i]->all_slots_histogram(b);
+      unmarked[b] += _tasks[i]->unmarked_slots_histogram(b);
     }
   }
   // Build the whole histogram first so it is emitted with a single write.
+  // Body format matches mmtk-core's MMTK::print_histograms.
   stringStream ss;
   ss.print_cr("\nSlot - object distance histogram (%s, mark cycle %u, GC %u, " JLONG_FORMAT " microseconds since start):",
               reason, _g1h->old_marking_cycles_started(), _g1h->total_collections(),
               (jlong)(os::elapsedTime() * MICROUNITS));
+  ss.print("ALL SLOTS => ");
   for (uint b = 0; b < G1CMTask::RefDistHistBuckets - 2; ++b) {
-    ss.print_cr("%u: %zu", b, hist[b]);
+    ss.print("%u: %zu, ", b, all[b]);
   }
-  ss.print_cr("null references: %zu", hist[70]);
-  ss.print_cr("out of bounds references: %zu", hist[71]);
+  ss.print("\nUNMARKED SLOTS => ");
+  for (uint b = 0; b < G1CMTask::RefDistHistBuckets - 2; ++b) {
+    ss.print("%u: %zu, ", b, unmarked[b]);
+  }
+  ss.print_cr("\nnull references: %zu", all[70]);
+  ss.print_cr("out of bounds references (all): %zu", all[71]);
+  ss.print_cr("out of bounds references (unmarked): %zu", unmarked[71]);
 
   if (print_dist_hist_to_file) {
     // Opened (and truncated) once per VM run in the constructor.
@@ -2210,7 +2219,8 @@ void G1CMTask::reset(G1CMBitMap* mark_bitmap) {
 
 void G1CMTask::clear_ref_dist_hist() {
   for (uint b = 0; b < RefDistHistBuckets; ++b) {
-    _ref_dist_hist[b] = 0;
+    _all_slots_histogram[b] = 0;
+    _unmarked_slots_histogram[b] = 0;
   }
 }
 

@@ -287,15 +287,18 @@ template <class T>
 inline bool G1CMTask::deal_with_reference(T* p) {
   increment_refs_reached();
   oop const obj = RawAccess<MO_RELAXED>::oop_load(p);
-  record_ref_dist(p, obj, _all_slots_histogram);
-  if (obj == nullptr) {
-    return false;
+  
+  if (_record_ref_dist) {
+    record_ref_dist(p, obj, _all_slots_histogram);
+    if (obj != nullptr &&
+        !_g1h->heap_region_containing(obj)->obj_allocated_since_marking_start(obj) &&
+        !_mark_bitmap->is_marked(obj)) {
+      record_ref_dist(p, obj, _unmarked_slots_histogram);
+    }
   }
 
-  // Objects allocated since marking started are implicitly live, so only
-  // count targets below TAMS that are not yet marked in the bitmap.
-  if (!_g1h->heap_region_containing(obj)->obj_allocated_since_marking_start(obj) && !_mark_bitmap->is_marked(obj)) {
-    record_ref_dist(p, obj, _unmarked_slots_histogram);
+  if (obj == nullptr) {
+    return false;
   }
 
   return make_reference_grey(obj);

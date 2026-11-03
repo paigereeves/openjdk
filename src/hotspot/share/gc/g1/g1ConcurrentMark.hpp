@@ -332,7 +332,7 @@ class G1ConcurrentMark : public CHeapObj<mtGC> {
 
   // True between the start of a concurrent trace (mark_from_roots) and the
   // point where its reference distance histogram has been printed.
-  volatile bool           _ref_dist_hist_active;
+  volatile bool           _ref_dist_hist_pending;
   // Output file for the reference distance histogram, opened in the constructor
   // when print_dist_hist_to_file is set; nullptr otherwise.
   fileStream*             _ref_dist_out;
@@ -407,6 +407,7 @@ class G1ConcurrentMark : public CHeapObj<mtGC> {
 
   // Zero the reference distance histogram of every task and mark it active.
   void start_ref_dist_hist();
+  void stop_ref_dist_recording();
   // Print the summed reference distance histogram if it is still active.
   void print_ref_dist_hist(const char* reason);
 
@@ -638,6 +639,8 @@ public:
   // Bucket 70: null
   // Bucket 71: |obj - p| >= 2^35
   static const uint RefDistHistBuckets = 72;
+  bool _record_ref_dist;
+  void set_record_ref_dist(bool v) { _record_ref_dist = v; }
 
 private:
   enum PrivateConstants {

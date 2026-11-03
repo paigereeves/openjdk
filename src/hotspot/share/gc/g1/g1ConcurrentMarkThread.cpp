@@ -193,10 +193,12 @@ bool G1ConcurrentMarkThread::phase_mark_loop() {
 
     // Check if we need to restart the marking loop.
     if (!mark_loop_needs_restart()) break;
+    _cm->print_ref_dist_hist("needs restart");
 
     log_info(gc, marking)("Concurrent Mark Restart for Mark Stack Overflow (iteration #%u)",
                           iter);
   }
+  _cm->print_ref_dist_hist("end");
 
   log_info(gc, marking)("Concurrent Mark %.3fms",
                         (Ticks::now() - mark_start).seconds() * 1000.0);

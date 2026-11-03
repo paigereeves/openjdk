@@ -395,7 +395,7 @@ G1ConcurrentMark::G1ConcurrentMark(G1CollectedHeap* g1h,
   _second_overflow_barrier_sync(),
 
   _completed_mark_cycles(0),
-  _ref_dist_hist_active(false),
+  _ref_dist_hist_pending(false),
   _ref_dist_out(nullptr),
   _has_overflown(false),
   _concurrent(false),
@@ -1073,21 +1073,32 @@ void G1ConcurrentMark::mark_from_roots() {
   // perf_ctrl_enable();
   _concurrent_workers->run_task(&marking_task);
   // perf_ctrl_disable();
-  // No-op if a concurrent_cycle_abort() already printed it.
-  print_ref_dist_hist("end");
+  stop_ref_dist_recording();
+  if (has_aborted()) {
+    // Aborted by a Full GC that raced with root region scan (nothing traced),
+    // or by shutdown (partial trace). Either way, discard.
+    Atomic::release_store(&_ref_dist_hist_pending, false);
+  }
   print_stats();
 }
 
 void G1ConcurrentMark::start_ref_dist_hist() {
   for (uint i = 0; i < _max_num_tasks; ++i) {
     _tasks[i]->clear_ref_dist_hist();
+    _tasks[i]->set_record_ref_dist(true);
   }
-  Atomic::release_store(&_ref_dist_hist_active, true);
+  Atomic::release_store(&_ref_dist_hist_pending, true);
+}
+
+void G1ConcurrentMark::stop_ref_dist_recording() {
+  for (uint i = 0; i < _max_num_tasks; ++i) {
+    _tasks[i]->set_record_ref_dist(false);
+  }
 }
 
 void G1ConcurrentMark::print_ref_dist_hist(const char* reason) {
   // Only one of the end of mark_from_roots() and concurrent_cycle_abort() prints.
-  if (!Atomic::cmpxchg(&_ref_dist_hist_active, true, false)) {
+  if (!Atomic::cmpxchg(&_ref_dist_hist_pending, true, false)) {
     return;
   }
   size_t all[G1CMTask::RefDistHistBuckets] = {};
@@ -2048,7 +2059,7 @@ bool G1ConcurrentMark::concurrent_cycle_abort() {
   // early.
   perf_ctrl_disable();
   // No-op unless a concurrent trace is in progress.
-  print_ref_dist_hist("abort");
+  print_ref_dist_hist("abort for full GC");
   root_region_scan_abort_and_wait();
 
   // We haven't started a concurrent cycle no need to do anything; we might have

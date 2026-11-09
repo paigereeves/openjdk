@@ -28,6 +28,7 @@
 #include "gc/g1/g1ConcurrentMarkObjArrayProcessor.inline.hpp"
 #include "gc/g1/heapRegion.inline.hpp"
 #include "gc/shared/gc_globals.hpp"
+#include "logging/log.hpp"
 #include "memory/memRegion.hpp"
 #include "utilities/globalDefinitions.hpp"
 
@@ -73,6 +74,11 @@ size_t G1CMObjArrayProcessor::process_slice(HeapWord* slice) {
          p2i(slice));
 
   objArrayOop objArray = objArrayOop(cast_to_oop(start_address));
+
+  if (_task->_record_ref_dist) {
+    log_trace(gc, marking)("Scanning object " PTR_FORMAT " type %s (slice " PTR_FORMAT ")",
+                           p2i(objArray), objArray->klass()->external_name(), p2i(slice));
+  }
 
   size_t already_scanned = slice - start_address;
   size_t remaining = objArray->size() - already_scanned;

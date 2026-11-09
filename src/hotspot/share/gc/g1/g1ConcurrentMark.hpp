@@ -39,6 +39,7 @@
 #include "memory/allocation.hpp"
 #include "utilities/compilerWarnings.hpp"
 #include "utilities/numberSeq.hpp"
+#include "utilities/resizeableResourceHash.hpp"
 
 class ConcurrentGCTimer;
 class G1ConcurrentMarkThread;
@@ -410,6 +411,8 @@ class G1ConcurrentMark : public CHeapObj<mtGC> {
   void stop_ref_dist_recording();
   // Print the summed reference distance histogram if it is still active.
   void print_ref_dist_hist(const char* reason);
+  // Print the summed slot type counts, highest count first, and totals.
+  void print_slot_types(outputStream* out, const char* reason);
 
   HeapWord*           finger()       { return _finger;   }
   bool                concurrent()   { return _concurrent; }
@@ -639,6 +642,7 @@ public:
   // Bucket 70: null
   // Bucket 71: |obj - p| >= 2^35
   static const uint RefDistHistBuckets = 72;
+  typedef ResizeableResourceHashtable<Klass*, size_t, AnyObj::C_HEAP, mtGC> SlotTypeTable;
   bool _record_ref_dist;
   void set_record_ref_dist(bool v) { _record_ref_dist = v; }
 
@@ -709,6 +713,9 @@ private:
   // yet marked when the slot was loaded.
   size_t                      _all_slots_histogram[RefDistHistBuckets];
   size_t                      _unmarked_slots_histogram[RefDistHistBuckets];
+  // Number of loaded slots per klass of the loaded object over the concurrent
+  // trace; the nullptr key counts null slots.
+  SlotTypeTable               _slot_types;
 
   // If true, then the task has aborted for some reason
   bool                        _has_aborted;
@@ -817,8 +824,11 @@ public:
   void clear_ref_dist_hist();
   size_t all_slots_histogram(uint bucket) const      { return _all_slots_histogram[bucket]; }
   size_t unmarked_slots_histogram(uint bucket) const { return _unmarked_slots_histogram[bucket]; }
-  // Add one to the bucket of hist for log2 distance p to obj.
-  template <class T> inline void record_ref_dist(T* p, oop obj, size_t* hist);
+  // Add one to the bucket of hist for log2 distance p to obj; returns the bucket.
+  template <class T> inline uint record_ref_dist(T* p, oop obj, size_t* hist);
+  const SlotTypeTable& slot_types() const { return _slot_types; }
+  // Add one to the count of slots that held an object of obj's klass (or null).
+  inline void record_slot_type(oop obj);
 
   // Grey the object by marking it.  If not already marked, push it on
   // the local queue if below the finger. obj is required to be below its region's TAMS.

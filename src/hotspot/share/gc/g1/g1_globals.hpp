@@ -277,6 +277,13 @@
   product(bool, G1VerifyHeapRegionCodeRoots, false, DIAGNOSTIC,             \
           "Verify the code root lists attached to each heap region.")       \
                                                                             \
+  product(bool, G1TreatWeakOopStoragesAsStrong, false, DIAGNOSTIC,          \
+          "Debugging aid: scan the weak OopStorages (ObjectMonitor "        \
+          "objects, JNI weak globals, StringTable, ...) as strong roots "   \
+          "when marking and evacuating, like the MMTk binding does, so "    \
+          "their referents are never cleared by GC. Not applied to "        \
+          "full GC marking with -XX:-ClassUnloading.")                      \
+                                                                            \
   develop(bool, G1VerifyBitmaps, false,                                     \
           "Verifies the consistency of the marking bitmaps")                \
                                                                             \

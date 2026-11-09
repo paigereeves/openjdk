@@ -38,6 +38,8 @@
 #include "gc/g1/heapRegion.hpp"
 #include "gc/shared/suspendibleThreadSet.hpp"
 #include "gc/shared/taskqueue.inline.hpp"
+#include "logging/log.hpp"
+#include "oops/klass.hpp"
 #include "utilities/bitMap.inline.hpp"
 #include "utilities/powerOfTwo.hpp"
 
@@ -170,6 +172,10 @@ inline void G1CMTask::process_grey_task_entry(G1TaskQueueEntry task_entry) {
       _words_scanned += _objArray_processor.process_slice(task_entry.slice());
     } else {
       oop obj = task_entry.obj();
+      if (_record_ref_dist) {
+        log_trace(gc, marking)("Scanning object " PTR_FORMAT " type %s",
+                               p2i(obj), obj->klass()->external_name());
+      }
       if (G1CMObjArrayProcessor::should_be_sliced(obj)) {
         _words_scanned += _objArray_processor.process_obj(obj);
       } else {
@@ -262,10 +268,10 @@ inline bool G1CMTask::make_reference_grey(oop obj) {
 }
 
 template <class T>
-inline void G1CMTask::record_ref_dist(T* p, oop obj, size_t* hist) {
+inline uint G1CMTask::record_ref_dist(T* p, oop obj, size_t* hist) {
   if (obj == nullptr) {
     hist[70]++;
-    return;
+    return 70;
   }
   uintptr_t const obj_addr = cast_from_oop<uintptr_t>(obj);
   uintptr_t const p_addr = p2i(p);
@@ -281,6 +287,17 @@ inline void G1CMTask::record_ref_dist(T* p, oop obj, size_t* hist) {
     bucket = 35 + log2;
   }
   hist[bucket]++;
+  return bucket;
+}
+
+inline void G1CMTask::record_slot_type(oop obj) {
+  Klass* const k = (obj == nullptr) ? nullptr : obj->klass();
+  bool created;
+  size_t* const count = _slot_types.put_if_absent(k, 0, &created);
+  (*count)++;
+  if (created) {
+    _slot_types.maybe_grow();
+  }
 }
 
 template <class T>
@@ -289,10 +306,17 @@ inline bool G1CMTask::deal_with_reference(T* p) {
   oop const obj = RawAccess<MO_RELAXED>::oop_load(p);
   
   if (_record_ref_dist) {
-    record_ref_dist(p, obj, _all_slots_histogram);
+    uint const bucket = record_ref_dist(p, obj, _all_slots_histogram);
+    record_slot_type(obj);
+    bool const marked = obj != nullptr && _mark_bitmap->is_marked(obj);
+    log_trace(gc, marking)("Ref dist: slot " PTR_FORMAT " -> " PTR_FORMAT " type %s distance " INTX_FORMAT " bucket %u marked %s",
+                           p2i(p), p2i(obj),
+                           obj == nullptr ? "null" : obj->klass()->external_name(),
+                           obj == nullptr ? (intx)0 : (intx)(cast_from_oop<intptr_t>(obj) - p2i(p)),
+                           bucket, BOOL_TO_STR(marked));
     if (obj != nullptr &&
         !_g1h->heap_region_containing(obj)->obj_allocated_since_marking_start(obj) &&
-        !_mark_bitmap->is_marked(obj)) {
+        !marked) {
       record_ref_dist(p, obj, _unmarked_slots_histogram);
     }
   }

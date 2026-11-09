@@ -51,6 +51,8 @@ class G1RootProcessor : public StackObj {
   SubTasksDone _process_strong_tasks;
   StrongRootsScope _srs;
   OopStorageSetStrongParState<false, false> _oop_storage_set_strong_par_state;
+  // Only used with G1TreatWeakOopStoragesAsStrong.
+  OopStorageSetWeakParState<false, false> _oop_storage_set_weak_par_state;
 
   enum G1H_process_roots_tasks {
     G1RP_PS_ClassLoaderDataGraph_oops_do,
@@ -67,6 +69,12 @@ class G1RootProcessor : public StackObj {
   void process_vm_roots(G1RootClosures* closures,
                         G1GCPhaseTimes* phase_times,
                         uint worker_id);
+
+  // With G1TreatWeakOopStoragesAsStrong, apply the strong oop closure to the weak
+  // OopStorages too. Only for marking and evacuation: the full GC adjust phase
+  // (process_all_roots) already adjusts weak OopStorages via WeakProcessor, so
+  // visiting them here as well would adjust their slots twice.
+  void process_weak_oop_storages_as_strong(G1RootClosures* closures);
 
   void process_code_cache_roots(CodeBlobClosure* code_closure,
                                 G1GCPhaseTimes* phase_times,

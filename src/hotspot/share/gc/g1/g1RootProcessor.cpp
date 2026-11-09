@@ -61,6 +61,7 @@ void G1RootProcessor::evacuate_roots(G1ParScanThreadState* pss, uint worker_id) 
   process_java_roots(closures, phase_times, worker_id);
 
   process_vm_roots(closures, phase_times, worker_id);
+  process_weak_oop_storages_as_strong(closures);
 
   // Now the CM ref_processor roots.
   if (_process_strong_tasks.try_claim_task(G1RP_PS_refProcessor_oops_do)) {
@@ -100,6 +101,7 @@ void G1RootProcessor::process_strong_roots(OopClosure* oops,
 
   process_java_roots(&closures, nullptr, 0);
   process_vm_roots(&closures, nullptr, 0);
+  process_weak_oop_storages_as_strong(&closures);
 
   // CodeCache is already processed in java roots
   // refProcessor is not needed since we are inside a safe point
@@ -197,6 +199,17 @@ void G1RootProcessor::process_vm_roots(G1RootClosures* closures,
     G1GCPhaseTimes::GCParPhases phase = G1GCPhaseTimes::strong_oopstorage_phase(id);
     G1GCParPhaseTimesTracker x(phase_times, phase, worker_id);
     _oop_storage_set_strong_par_state.par_state(id)->oops_do(closures->strong_oops());
+  }
+}
+
+void G1RootProcessor::process_weak_oop_storages_as_strong(G1RootClosures* closures) {
+  if (!G1TreatWeakOopStoragesAsStrong) {
+    return;
+  }
+  // Workers claim blocks of each storage through the par state, as for the strong
+  // storages. ParState::oops_do skips null (already cleared) entries.
+  for (auto id : EnumRange<OopStorageSet::WeakId>()) {
+    _oop_storage_set_weak_par_state.par_state(id)->oops_do(closures->strong_oops());
   }
 }
 

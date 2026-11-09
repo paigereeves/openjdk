@@ -1096,6 +1096,56 @@ void G1ConcurrentMark::stop_ref_dist_recording() {
   }
 }
 
+struct SlotTypeCount {
+  Klass* _klass;
+  size_t _count;
+};
+
+static int compare_slot_type_count(SlotTypeCount* a, SlotTypeCount* b) {
+  // Highest count first.
+  return (a->_count < b->_count) ? 1 : ((a->_count > b->_count) ? -1 : 0);
+}
+
+// The klasses are those of objects reached by the trace, which are marked
+// and so keep their classes alive until printed.
+void G1ConcurrentMark::print_slot_types(outputStream* out, const char* reason) {
+  ResourceMark rm;
+  // Merge the per-task counts.
+  G1CMTask::SlotTypeTable merged(1024, 64 * 1024);
+  for (uint i = 0; i < _max_num_tasks; ++i) {
+    _tasks[i]->slot_types().iterate_all([&] (Klass* k, size_t n) {
+      bool created;
+      *merged.put_if_absent(k, 0, &created) += n;
+      if (created) {
+        merged.maybe_grow();
+      }
+    });
+  }
+
+  GrowableArray<SlotTypeCount> counts(merged.number_of_entries());
+  size_t total = 0;
+  size_t null_count = 0;
+  merged.iterate_all([&] (Klass* k, size_t n) {
+    counts.append({k, n});
+    total += n;
+    if (k == nullptr) {
+      null_count = n;
+    }
+  });
+  counts.sort(compare_slot_type_count);
+
+  // Format matches mmtk-core's MMTK::print_and_reset_slot_types.
+  out->print_cr("Loaded slot types (%s, mark cycle %u, GC %u, " JLONG_FORMAT " microseconds since start):",
+                reason, _g1h->old_marking_cycles_started(), _g1h->total_collections(),
+                (jlong)(os::elapsedTime() * MICROUNITS));
+  for (int i = 0; i < counts.length(); ++i) {
+    Klass* const k = counts.at(i)._klass;
+    out->print_cr("%12zu %s", counts.at(i)._count, k == nullptr ? "null" : k->external_name());
+  }
+  out->print_cr("total loaded slots: %zu", total);
+  out->print_cr("non-null loaded slots: %zu", total - null_count);
+}
+
 void G1ConcurrentMark::print_ref_dist_hist(const char* reason) {
   // Only one of the end of mark_from_roots() and concurrent_cycle_abort() prints.
   if (!Atomic::cmpxchg(&_ref_dist_hist_pending, true, false)) {
@@ -1126,6 +1176,18 @@ void G1ConcurrentMark::print_ref_dist_hist(const char* reason) {
   ss.print_cr("\nnull references: %zu", all[70]);
   ss.print_cr("out of bounds references (all): %zu", all[71]);
   ss.print_cr("out of bounds references (unmarked): %zu", unmarked[71]);
+  // Totals over every bucket, including null and out of bounds.
+  size_t all_total = 0;
+  size_t unmarked_total = 0;
+  for (uint b = 0; b < G1CMTask::RefDistHistBuckets; ++b) {
+    all_total += all[b];
+    unmarked_total += unmarked[b];
+  }
+  ss.print_cr("total slots (all): %zu", all_total);
+  ss.print_cr("non-null slots (all): %zu", all_total - all[70]);
+  ss.print_cr("total slots (unmarked): %zu", unmarked_total);
+
+  print_slot_types(&ss, reason);
 
   if (print_dist_hist_to_file) {
     // Opened (and truncated) once per VM run in the constructor.
@@ -2233,6 +2295,10 @@ void G1CMTask::clear_ref_dist_hist() {
     _all_slots_histogram[b] = 0;
     _unmarked_slots_histogram[b] = 0;
   }
+  struct RemoveAll {
+    bool do_entry(Klass* const& k, size_t const& n) { return true; }
+  } remove_all;
+  _slot_types.unlink(&remove_all);
 }
 
 bool G1CMTask::should_exit_termination() {
@@ -2930,6 +2996,7 @@ G1CMTask::G1CMTask(uint worker_id,
                    G1ConcurrentMark* cm,
                    G1CMTaskQueue* task_queue,
                    G1RegionMarkStats* mark_stats) :
+  _record_ref_dist(false),
   _objArray_processor(this),
   _worker_id(worker_id),
   _g1h(G1CollectedHeap::heap()),
@@ -2950,6 +3017,7 @@ G1CMTask::G1CMTask(uint worker_id,
   _refs_reached(0),
   _refs_reached_limit(0),
   _real_refs_reached_limit(0),
+  _slot_types(1024, 64 * 1024),
   _has_aborted(false),
   _has_timed_out(false),
   _draining_satb_buffers(false),

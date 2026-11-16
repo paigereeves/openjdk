@@ -248,7 +248,10 @@ void Thread::call_run() {
     // JavaThread::name() copies the java.lang.Thread name into the resource area.
     ResourceMark rm(this);
     char buf[80]; // ANON_VMA_NAME_MAX_LEN, including the terminating NUL
-    os::snprintf(buf, sizeof(buf), "%s Stack", this->name());
+    // Truncate the thread name so the " Stack" suffix always fits.
+    // sizeof(" Stack") includes the NUL, so this leaves 80 - 7 = 73 chars for the name.
+    const int max_name_len = (int)(sizeof(buf) - sizeof(" Stack"));
+    os::snprintf(buf, sizeof(buf), "%.*s Stack", max_name_len, this->name());
     int result = prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME,
                        this->stack_end(), this->stack_size(), buf);
     assert(result == 0, "Failed to set VMA anon name for thread stack.");
